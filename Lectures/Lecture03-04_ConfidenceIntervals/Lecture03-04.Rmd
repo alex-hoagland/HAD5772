@@ -1,0 +1,39 @@
+---
+title: "Lecture 3 Code"
+author: "Alex Hoagland"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r header}
+# I like to include several additional notes in the header of my files here:
+#
+# Last modified: 10/4/2023
+#
+### PURPOSE:
+  # Lecture 3 code and output file
+# 
+### NOTES:
+  # - uses the Tidyverse package and Dplyr
+  # - uses the NHANES package to load data from the US National Health and Nutrition Examination Survey (NHANES, 1999-2004). 
+```
+
+## Starting with R: Some things to be aware of
+
+
+### Package Citations
+```{r, include=FALSE}
+print("=============================Works Cited=============================")
+loadedNamespaces() %>%
+map(citation) %>%
+print(style = "text") # Adds citations for each package to end of .rmd file
+
+knitr::write_bib(file = 'packages.bib') # Constructs a citation file for all packages used in this lecture.
+
+# DON'T FORGET TO CITE YOUR PACKAGES IN YOUR PAPERS/ASSIGNMENTS. 
+```
+Let's knit this file and save it! 
