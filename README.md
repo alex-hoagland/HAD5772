@@ -6,4 +6,4 @@ Folder contains:
 2. Exercises: sample exercises to be used throughout the course
 3. Lectures: Slides and code from all lectures
 
-For questions or comments, email me at alexander.hoagland@utoronto.ca
+For questions or comments, email me at alexander.hoagland@utoronto.ca.
