@@ -1,0 +1,236 @@
+---
+title: "Lecture 3 Code"
+author: "Alex Hoagland"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r header}
+# I like to include several additional notes in the header of my files here:
+#
+# Last modified: 10/4/2023
+#
+### PURPOSE:
+  # Lecture 3 code and output file
+# 
+### NOTES:
+  # - uses the Tidyverse package and Dplyr
+  # - uses the NHANES package to load data from the US National Health and Nutrition Examination Survey (NHANES, 1999-2004). 
+```
+
+## Sampling and standard errors
+Let's suppose that we have a population (we don't) from which we repeatedly sample and estimate a mean. For this one, we will use data on COVID prevalence.  
+```{r sample-data}
+install.packages("medicaldata")
+library(medicaldata)
+library(tidyverse)
+
+data(package = "medicaldata") # this will show you the full list of data sets
+# https://higgi13425.github.io/medicaldata/
+
+# Let's use the covid-testing data
+mydata <- covid_testing # Suppose that this is the population 
+
+# If we want to take samples of 500 patients each
+sample1 <- mydata %>% sample_n(500, replace=TRUE)
+sample1 %>% mutate(positive = (result == "positive")*100) %>% # generate new variable (in %)
+  ungroup() %>% select(positive) %>% summarize_all(mean) # summarize average value
+
+# What if we take 100 of these samples? 
+allsamples <- rep(NA, 100) # empty frame to store results
+for (i in 1:100) { 
+ test <- mydata %>% sample_n(500, replace=TRUE)
+  allsamples[i] <- test %>% mutate(positive = (result == "positive")*100) %>% # generate new variable (in %)
+  ungroup() %>% select(positive) %>% summarize_all(mean) %>% as.numeric() # summarize average value
+  rm(test)
+}
+hist(allsamples)
+sd(allsamples) # This is a measure of variability
+
+# What about calculating SEs directly in the pouplation? 
+mydata <- mydata %>% mutate(positive = (result == "positive"))
+summary <- mydata %>% select(positive) %>% summarize(mean = mean(positive), 
+                                                         sd=sd(positive), n=n())
+summary$sd/sqrt(summary$n) # this is the standard error for our mean 
+
+# note: any concerns with this? technically the test is a binomial random variable, so we would actually need a different way of calculating se
+sqrt(summary$mean*(1-summary$mean)/summary$n) # note that this isn't very different in this case. 
+```
+
+Now, let's talk about *plotting* uncertainty. What if we wanted to plot average positive rate across age bins? 
+```{r data-viz-uncertainty}
+# first, create some age bins
+mydata <- mydata %>% mutate(agebin = ifelse(age < 18, 1, 
+                                            ifelse(age >= 18 & age < 30, 2, 
+                                                            ifelse(age >= 30 & age < 65, 3, 4))))
+
+# now without uncertainty, how can we plot 
+ggplot(mydata) + 
+  geom_bar(aes(as.factor(agebin), positive*100,fill=as.factor(agebin)), 
+           position = "dodge", stat = "summary", fun.y = "mean") + 
+  theme_classic() + labs(x="Age Bin", y="% Positive", fill="") # what do we think here? 
+
+# now how to add uncertainty -- error bars
+mydata <- mydata %>% group_by(agebin) %>% mutate(mean = mean(positive*100), 
+                                                 sd=sd(positive*100), 
+                                                 se = sd/sqrt(n())) # varies within groups)
+ggplot(mydata) + 
+  geom_bar(aes(as.factor(agebin), positive*100,fill=as.factor(agebin)), 
+           position = "dodge", stat = "summary", fun.y = "mean") + 
+  theme_classic() + labs(x="Age Bin", y="% Positive", fill="") +
+  geom_errorbar(aes(x=as.factor(agebin), ymin=mean-sd, ymax=mean+sd), width=.2,position=position_dodge(.9)) # What happens if I just add SDs? 
+
+ggplot(mydata) + 
+  geom_bar(aes(as.factor(agebin), positive*100,fill=as.factor(agebin)), 
+           position = "dodge", stat = "summary", fun.y = "mean") + 
+  theme_classic() + labs(x="Age Bin", y="% Positive", fill="") +
+  geom_errorbar(aes(x=as.factor(agebin), ymin=mean-se, ymax=mean+se), width=.2,position=position_dodge(.9)) # Now what's the story? 
+```
+
+## Calculating values from the normal distribution
+Note: this is all very similar across the "main" distributions that R knows. We just use the normal distribution here as an example
+```{r normal-dist} 
+# If you want to sample from a normal distribution: 
+sample_normal <- rnorm(n=1000,mean=5,sd=10)
+hist(sample_normal) # think: how would you standardize this? 
+
+# First, pdf
+pnorm(q=10,mean=5,sd=10) # what is the probability that a normal draw is less than 10?
+
+# Second, cdf
+dnorm(x=10,mean=5,sd=10) # this gives the density 
+
+# Third, quantiles
+qnorm(p=c(.1,.2,.3,.4,.5,.6,.7,.8,.9,1),mean=5,sd=10) # quantiles of the distribution
+
+# Fourth, critical values
+qnorm(p=c(.025,.975),mean=5,sd=10) # two-sided quantiles of the distribution
+```
+
+## Calculating confidence intervals 
+Note that we already built a confidence interval! All we need to do is appropriately adjust the standard error in the graph above. So how do we interpret it? 
+
+Suppose we want to calculate these directly. Can we? Yes!
+```{r ci}
+# confidence intervals across agebins
+mydata %>% 
+  group_by(agebin) %>% 
+  summarise(ci = list(mean_cl_normal(positive*100) %>% 
+                        rename(mean=y, lwr=ymin, upr=ymax))) %>% 
+  unnest # what do we think about this? How could we present it? 
+
+# now suppose that we want a different level of confidence
+ci_95 <- mydata %>% 
+  group_by(agebin) %>% 
+  summarise(ci = list(mean_cl_normal(positive*100) %>% 
+                        rename(mean=y, lwr=ymin, upr=ymax))) %>% 
+  unnest # what do we think about this? How could we present it? 
+ci_99 <- mydata %>% 
+  group_by(agebin) %>% 
+  summarise(ci = list(mean_cl_normal(positive*100,conf.int=.99) %>% 
+                        rename(mean=y, lwr=ymin, upr=ymax))) %>% 
+  unnest # what do we think about this? How could we present it? 
+```
+
+### Confidence intervals for proportions vs. means
+Let's get a little more specific into confidence intervals for proportions vs. means
+```{r ci-proportions}
+# When we have a binary outcome variable, we can calculate SEs and CIs based on the binomial distribution
+
+# Let's look at how the CIs would be different if we ignored this
+# For this example, consider test positivity across groups of "payors" for the test
+mydata <- mydata %>% group_by(payor_group) %>% 
+  mutate(mymean = mean(positive,na.rm=T),
+         sd = sd(positive), 
+         mycount = n())
+mydata <- mydata %>% mutate(invmean = 1 - mean)
+mydata <- mydata %>% mutate(se_mean = sd/sqrt(mycount), 
+                            se_prop = sqrt(mean*(1-mean)/mycount))
+ggplot(mydata) + 
+  geom_bar(aes(as.factor(payor_group), positive*100,fill=as.factor(payor_group)), 
+           position = "dodge", stat = "summary", fun.y = "mean") + 
+  theme_classic() + labs(x="Payor Group", y="% Positive", fill="") +
+  geom_errorbar(aes(x=as.factor(payor_group), 
+                    ymin=(mean-1.96*se_mean)*100, ymax=(mean+1.96*se_mean)*100), 
+                width=.2,position=position_dodge(.9)) + 
+    geom_errorbar(aes(x=as.factor(payor_group), 
+                    ymin=(mean-1.96*se_prop)*100, ymax=(mean+1.96*se_prop)*100), 
+                width=.2,position=position_dodge(.9),color='brown') + 
+  theme(axis.text.x = element_text(angle = -45, vjust = 0.5, hjust=1))
+# What do we think about this overall, and then comparing the two types of error bars?
+```
+
+### CIs for Poisson data
+Suppose that we wanted to say something about *how many* tests each individual got, rather than the outcome of tests. That is, what if we were worried about differential access to testing? 
+```{r poisson}
+# to get some fake data on this, let's collapse by first name in the dataset 
+collapsed <- mydata %>% group_by(fake_first_name) %>% summarize(tests = n())
+hist(collapsed$tests) # Look Poisson enough? 
+
+summary(collapsed$tests) # note the skew 
+# but we don't need a package to get SEs! 
+collapsed %>% ungroup() %>% summarize(mean = mean(tests), n = n()) %>% 
+  mutate(se = sqrt(mean/n)) %>% select(se)
+
+# Now how can you plot this? Make a CI? Try it!
+```
+
+### CIs for differences in means 
+Finally, let's test for the difference between means/proportions across two groups: men and women. We'll look at a continuous variable (time to first test) and a binary variable (positivity rates)
+
+```{r diff-means}
+# First, let's do a difference in means 
+t.test(pan_day ~ gender, data = mydata, var.equal = FALSE)
+
+# Second, let's do a difference in proportions
+install.packages('tidymodels') # note: this takes a while
+library(tidymodels)
+prop_test(mydata, positive ~ gender) 
+```
+
+
+## Survival Curves
+Let's plot how long people "last" before a test across groups (let's go back to agebins). We can use the "pan_day" variable here since it already has a helpful time 0.
+
+```{r survival}
+# Need some packages
+install.packages(c("survival", "survminer"))
+library("survival")
+library("survminer")
+
+# Need to define a "time 0" 
+hist(mydata$pan_day)
+
+# Now we can do survival based on bins
+fit <- survfit(Surv(pan_day) ~ agebin, data = mydata)
+print(fit) # What do we take from this? 
+
+# Let's plot!
+ggsurvplot(fit,
+          pval = TRUE, conf.int = TRUE,
+          risk.table = TRUE, # Add risk table
+          risk.table.col = "strata", # Change risk table color by groups
+          linetype = "strata", # Change line type by groups
+          surv.median.line = "hv", # Specify median survival
+          ggtheme = theme_bw(), # Change ggplot2 theme
+          palette = c("#E7B800", "#2E9FDF", "palegreen", "mediumpurple1"))
+
+# how do we make sense of this? 
+```
+
+## Package Citations
+```{r, include=FALSE}
+print("=============================Works Cited=============================")
+loadedNamespaces() %>%
+map(citation) %>%
+print(style = "text") # Adds citations for each package to end of .rmd file
+
+knitr::write_bib(file = 'packages.bib') # Constructs a citation file for all packages used in this lecture.
+
+# DON'T FORGET TO CITE YOUR PACKAGES IN YOUR PAPERS/ASSIGNMENTS. 
+```
+Let's knit this file and save it! 
