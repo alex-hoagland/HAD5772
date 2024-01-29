@@ -45,4 +45,6 @@ i write some stuff about it
 
 # to load specific data (change this for each problem)
 mydata <- wooldridge::fertil1
+
+# calculate the interquartile range of educ in fertil1
 ```

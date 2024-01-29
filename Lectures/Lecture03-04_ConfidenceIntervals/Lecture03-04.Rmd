@@ -23,18 +23,42 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Calculating values from the normal distribution
 Note: this is all very similar across the "main" distributions that R knows. We just use the normal distribution here as an example (*todo*: add an example here using copilot that samples from the Bernoulli and creates some data)
+
+```{r bernoulli-sample}
+
+# Create a dataset called mydata that samples from a Bernoulli distribution with p = .15 and n = 10000
+mydata <- rbinom(n=10000,size=1,prob=.15)
+
+# Loop through 100 iterations of a Bernoulli sampling process with p = .15 and n = 10000, store the mean each time, and create a histogram of the mean
+allsamples <- rep(NA, 100) # empty frame to store results
+for (i in 1:10000) {
+  test <- rbinom(n=10000,size=1,prob=.15)
+  allsamples[i] <- mean(test)
+  rm(test)
+}
+hist(allsamples)
+```
+
 ```{r normal-dist}
 # If you want to sample from a normal distribution:
 sample_normal <- rnorm(n=1000,mean=5,sd=10)
 hist(sample_normal) # think: how would you standardize this?
 
+# Standardize sample_normal
+sample_normal2 <- (sample_normal - mean(sample_normal))/sd(sample_normal)
+sample_normal3 <- (sample_normal-5)/10
+
 # First, pdf
+pnorm(q=0,mean=0,sd=1)
 pnorm(q=10,mean=5,sd=10) # what is the probability that a normal draw is less than 10?
 
 # Second, cdf
 dnorm(x=10,mean=5,sd=10) # this gives the density
 
 # Third, quantiles
+
+# Identify the 5th and 95th percentiles of a normal distribution with mean 5 and sd 10
+qnorm(p=c(0.05,0.95),mean=5,sd=10)
 qnorm(p=c(.1,.2,.3,.4,.5,.6,.7,.8,.9,1),mean=5,sd=10) # quantiles of the distribution
 
 # Fourth, critical values
@@ -71,7 +95,7 @@ hist(allsamples)
 sd(allsamples) # This is a measure of variability
 
 # What about calculating SEs directly in the pouplation?
-mydata <- mydata %>% mutate(positive = (result == "positive"))
+mydata <- mydata %>% mutate(positive = (result == "positive")*100)
 summary <- mydata %>% select(positive) %>% summarize(mean = mean(positive),
                                                          sd=sd(positive), n=n())
 summary$sd/sqrt(summary$n) # this is the standard error for our mean
