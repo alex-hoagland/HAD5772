@@ -1,0 +1,240 @@
+﻿/*basic trend md overrides*/
+/*Hide title until content is or is not populated*/
+.js-TMDtitle-display {
+    display: none;
+}
+
+#trendmd-suggestions {
+    margin-bottom: 42px;
+    text-align: left;
+}
+
+.trendmd-widget-inner {
+    display: block;
+}
+
+.trendmd-widget-header {
+    display: none;
+}
+
+.trendmd-widget-header__heading {
+    display: none;
+}
+
+.trendmd-widget_horizontal {
+    padding-top: 0 !important;
+}
+
+.trendmd-widget_horizontal .trendmd-widget-section {
+    float: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border: 0 !important;
+    padding: 0 !important;
+}
+
+.trendmd-widget-list-item {
+    padding-top: 0 !important;
+    display: block !important;
+    margin-bottom: 1rem !important;
+}
+
+.trendmd-widget-list-item__link {
+    font-weight: 700 !important;
+    line-height: 1.45;
+    font-size: 16px !important;
+    vertical-align: middle;
+    font-family: "Guardian TextSans Web", "Helvetica Neue", Helvetica !important;
+    display: block;
+    margin-bottom: .5rem !important;
+}
+
+/* Hide last link so that there area only 3.
+Neither one of these works alone, but together they work.*/
+#trendmd-suggestions div + div ol li:last-of-type {
+    display: unset !important;
+    display: none !important;
+}
+
+
+.sidebar h4 {
+    text-align: left;
+}
+
+#trendmd-suggestions .trendmd-widget-list-item__meta {
+    font-size: 13px !important;
+    font-family: "Guardian TextSans Web", "Helvetica Neue", Helvetica !important;
+    color: #535353 !important;
+}
+
+/*split screen styles*/
+
+
+@media all and (min-width: 1301px) {
+    .split-screen .trendmd-widget-inner {
+        display: flex !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) {
+        display: flex !important;
+        flex-grow: 2;
+        flex-basis: 66.6%;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(2) {
+        flex-grow: 1;
+        flex-basis: 33.33%;
+    }
+
+    .split-screen .trendmd-widget-section .trendmd-widget-list {
+        padding: 0 !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) .trendmd-widget-list {
+        display: flex !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) .trendmd-widget-list li {
+        flex-basis: calc(50% - 14px);
+        display: inline-block;
+        margin-left: 24px !important;
+        margin-bottom: 21px !important;
+        padding: 0 !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) .trendmd-widget-list li:first-of-type {
+        margin-left: 0 !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(2) {
+        margin-left: 12px !important;
+        padding-left: .75rem;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(2) .trendmd-widget-list li {
+        padding: 0 !important;
+        display: inline-block;
+    }
+}
+@media all and (max-width: 1024px) {
+    .split-screen .trendmd-widget-inner {
+        display: flex;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) {
+        display: flex;
+        flex-grow: 2;
+        flex-basis: 66%;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(2) {
+        flex-grow: 1;
+        flex-basis: 33%;
+        margin-left: 20px !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) .trendmd-widget-list {
+        display: flex;
+    }
+
+        .split-screen .trendmd-widget-section:nth-of-type(1) .trendmd-widget-list li {
+            flex-basis: 50%;
+            display: block;
+            margin: 0 12px 16px 16px !important;
+            padding: 0 !important;
+        }
+
+            .split-screen .trendmd-widget-section:nth-of-type(1) .trendmd-widget-list li:first-of-type {
+                margin-left: 0 !important;
+            }
+
+    .split-screen .trendmd-widget-section:nth-of-type(2) .trendmd-widget-list li {
+        padding: 0 .75em 0 0 !important;
+        display: block;
+        margin: 0 12px 16px 0 !important;
+    }
+}
+@media all and (max-width: 640px) {
+    .split-screen .trendmd-widget-inner {
+        display: block !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) {
+        display: block !important;
+    }
+
+        .split-screen .trendmd-widget-section:nth-of-type(1) .trendmd-widget-list {
+            display: block !important;
+        }
+
+    .split-screen .trendmd-widget-section:nth-of-type(2) {
+        margin-left: 0 !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) .trendmd-widget-list li {
+        margin: 0 0 16px 0 !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(2) .trendmd-widget-list li {
+        margin: 0 0 16px 0 !important;
+    }
+}
+/*non split screen*/
+@media all and (max width: 639px) {
+    .split-screen .trendmd-widget-inner {
+        display: flex !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) {
+        display: flex !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) .trendmd-widget-list {
+        display: flex !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) .trendmd-widget-list li {
+        margin-left: 21px !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(2) {
+        margin-left: 12px !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(2) .trendmd-widget-list li {
+        padding: 0 1em 0 1.75em !important;
+    }
+}
+@media all and (min width: 640px) and (max-width: 1024px) {
+    .split-screen .trendmd-widget-inner {
+        display: block !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) {
+        display: block !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) .trendmd-widget-list {
+        display: block !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(1) .trendmd-widget-list li {
+        margin-left: 0 !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(2) {
+        margin-left: 0 !important;
+    }
+
+    .split-screen .trendmd-widget-section:nth-of-type(2) .trendmd-widget-list li {
+        padding: 0 !important;
+    }
+}
+
+
+
+
+
+
+
+
