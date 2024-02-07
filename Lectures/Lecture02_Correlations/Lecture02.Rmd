@@ -47,14 +47,6 @@ You can embed an R code chunk like this:
 
 Let's test this in copilot. Can I create a chunk that calculates the mean of a variable? What about windsorizing the mean?
 
-# Make a code chunk that calculates the mean of a variable
-
-```{r mean}
-# Calculate the meaan of a variable
-mean(mydata$Age, na.rm = T)
-```
-```
-
 ## Packages in R
 
 R is a collaborative open-source language, which means people write and share packages that do all sorts of helpful things. We'll make use of some of the most common packages for econometric reserach throughout this course.

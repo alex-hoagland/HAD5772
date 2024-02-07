@@ -85,7 +85,7 @@ sample1 %>% mutate(positive = (result == "positive")*100) %>% # generate new var
 
 # What if we take 100 of these samples?
 allsamples <- rep(NA, 100) # empty frame to store results
-for (i in 1:100) {
+for (i in 1:10) {
  test <- mydata %>% sample_n(500, replace=TRUE)
   allsamples[i] <- test %>% mutate(positive = (result == "positive")*100) %>% # generate new variable (in %)
   ungroup() %>% select(positive) %>% summarize_all(mean) %>% as.numeric() # summarize average value
@@ -232,7 +232,7 @@ library(tidymodels)
 testdata <- mydata %>% ungroup() %>% select(positive_frac, gender) %>% 
   mutate(positive_frac = as.factor(positive_frac), 
         gender = as.factor(gender))
-prop_test(testdata,detailed=TRUE)
+# prop_test(testdata,detailed=TRUE)
 ```
 
 
@@ -241,7 +241,7 @@ Let's plot how long people "last" before a test across groups (let's go back to 
 
 ```{r survival}
 # Need some packages
-install.packages(c("survival", "survminer"))
+# install.packages(c("survival", "survminer"))
 library("survival")
 library("survminer")
 

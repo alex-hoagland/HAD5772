@@ -56,7 +56,8 @@ mydata %>% mutate(wage = exp(lwage)) %>% # convert to dollars
   mean(exp(mydata$lwage)) # average wage is $5.92 in sample
   sd(exp(mydata$lwage)) # SD is 3.20
   (5.92-7.77)/(3.20/sqrt(4360)) # t-statistic (how do we interpret this?)
-t.test(exp(mydata$lwage), mu=7.77) # What do we think? Ignore p-value for now
+
+  t.test(exp(mydata$lwage), mu=7.77) # What do we think? Ignore p-value for now
 
   # What's the conclusion? How do we interpret our test? 
 ```
@@ -85,6 +86,7 @@ mydata %>% mutate(wage = exp(lwage)) %>% ggplot() + geom_histogram(aes(wage,fill
   sd(exp(mydata[which(mydata$black==1),]$lwage)) # SD is 2.72
   (6.00-5.26)/(sqrt((3.25^2/3856)+(2.72^2/504))) # t-statistic (how do we interpret this?)
 t.test(exp(mydata$lwage) ~ mydata$black) # What do we think?
+t.test(exp(mydata$lwage) ~ mydata$black, alternative="two.sided") # What do we think?
 
 # What if we do the same thing for poor health instead of black? 
 # Make a bar chart showing size of groups
@@ -104,7 +106,7 @@ mydata %>% mutate(wage = exp(lwage)) %>% ggplot() + geom_histogram(aes(wage,fill
   sd(exp(mydata[which(mydata$poorhlth==0),]$lwage)) # SD is 3.21
   sd(exp(mydata[which(mydata$poorhlth==1),]$lwage)) # SD is 2.60
   (5.93-5.21)/(sqrt((3.21^2/(4360-74))+(2.60^2/74))) # t-statistic (how do we interpret this?)
-t.test(exp(mydata$lwage) ~ mydata$poorhlth) # What do we think?
+t.test(exp(mydata$lwage) ~ mydata$poorhlth, conf.level=0.99) # What do we think?
 ```
 
 ## Examining rejection regions
@@ -132,7 +134,7 @@ cc <- curve(dnorm(x, mean = 20, sd = 10), from = -10, to = 50, n = 1000, lwd = 3
 area_poly(cc, cutoff = 16, side = 1, col = "grey50", density = 10)
 
 # What if we standardize?
-cc <- curve(dnorm(x, mean = 0, sd = 1), from = -4, to = 4, n = 1000, lwd = 3, xlab = "", ylab = "Density", frame = F)
+cc <- curve(dnorm(x, mean = 0, sd = 1), from = -4.2, to = 4.2, n = 1000, lwd = 3, xlab = "", ylab = "Density", frame = F)
 area_poly(cc, cutoff = -.4, side = 1, col = "grey50", density = 10)
 
 # But we haven't yet adjusted for standard error!
@@ -243,7 +245,7 @@ Finally, let's use the example in the slides about tipping to explore the effect
 set.seed(0813)
 
 # sample data that has 16 observations with mean 12 and var 23
-tip_data <- data.frame(rnorm(16, mean = 12, sd = sqrt(23)))
+tip_data <- data.frame(rnorm(n=16, mean = 12, sd = sqrt(23)))
 names(tip_data) <- "tips"
 
 # can we reject the null hypothesis of mean = 15 with 99% confidence? 
@@ -251,13 +253,13 @@ t.test(tip_data, mu = 15, conf.level = 0.99)
 confint(lm(tips~1,tip_data), level=0.99) # 99% confidence interval for tip_data
 
 # Okay, suppose that we had a larger sample size of n=100
-tip_data <- data.frame(rnorm(100, mean = 12, sd = sqrt(23)))
+tip_data <- data.frame(rnorm(n=100, mean = 12, sd = sqrt(23)))
 names(tip_data) <- "tips"
 t.test(tip_data, mu = 15, conf.level = 0.99)
 confint(lm(tips~1,tip_data), level=0.99) 
 
 # What if variance changed too? 
-tip_data <- data.frame(rnorm(100, mean = 12, sd = sqrt(100)))
+tip_data <- data.frame(rnorm(n=100, mean = 12, sd = sqrt(100)))
 names(tip_data) <- "tips"
 t.test(tip_data, mu = 15, conf.level = 0.99)
 confint(lm(tips~1,tip_data), level=0.99) 
