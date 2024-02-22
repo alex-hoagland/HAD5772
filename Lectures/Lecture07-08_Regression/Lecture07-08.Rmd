@@ -1,5 +1,5 @@
 ---
-title: "Lecture 3 Code"
+title: "Lecture 7-8 Code"
 author: "Alex Hoagland"
 date: "`r Sys.Date()`"
 output: html_document
@@ -12,257 +12,552 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r header}
 # I like to include several additional notes in the header of my files here:
 #
-# Last modified: 2024-01-23
+# Last modified: 2024-02-19 
 #
 ### PURPOSE:
-  # Lecture 3 code and output file
+  # Lecture 7-8 code and output file (Regression)
 #
 ### NOTES:
   # - uses the Tidyverse package and Dplyr
 library(tidyverse)
+library(broom) # helps for storing regression output
+library(faux) # Useful package for simulating data
+library(modelsummary) # For making regression tables
+library(causaldata) # Useful toy data sets
+
+set.seed(122333) # Setting the seed helps to make random number generators give us the same numbers across machines
 ```
 
-## Calculating values from the normal distribution
-Note: this is all very similar across the "main" distributions that R knows. We just use the normal distribution here as an example (*todo*: add an example here using copilot that samples from the Bernoulli and creates some data)
+## Regression
 
-```{r bernoulli-sample}
+### Preliminaries
 
-# Create a dataset called mydata that samples from a Bernoulli distribution with p = .15 and n = 10000
-mydata <- rbinom(n=10000,size=1,prob=.15)
+Let's first set up our data in the case where we **know** our data generating process (DGP). Pretend that we know that
 
-# Loop through 100 iterations of a Bernoulli sampling process with p = .15 and n = 10000, store the mean each time, and create a histogram of the mean
-allsamples <- rep(NA, 100) # empty frame to store results
-for (i in 1:100) {
-  test <- rbinom(n=10000,size=1,prob=.15)
-  allsamples[i] <- mean(test)
-  rm(test)
+$$ y = 5.5x+u $$
+
+for some random variation $u$.
+
+```{r data-setup}
+tb <- tibble(
+  x = rnorm(10000),
+  u = rnorm(10000),
+  y = 5.5*x + 12*u
+) # Here's our true model, with some randomness baked in
+```
+
+In this case, what happens when we run a regression of $y$ on $x$?
+
+```{r simple-reg}
+tb %>% lm(y ~ x, .) 
+```
+
+### Visualizing Regressions
+
+There's **a lot** we can do in R with regressions. Let's try some!
+
+```{r model-viz}
+# Looking at your model output
+reg_tb <- lm(y ~ x, data=tb) # Store regression as an object 
+
+summary(reg_tb) # gives you a full summary
+regdata <- broom::tidy(reg_tb, conf.int=TRUE) # Stores regression output in a data frame
+regouts <- broom::glance(reg_tb) # Stores other regression features in a data frame
+```
+
+Rather than just seeing what the regression returns (e.g., in a table), we can also look at its performance in the data (e.g., with more data visualizations)
+
+```{r reg-performance}
+tb <- tb %>% 
+  mutate(
+    yhat1 = predict(lm(y ~ x, .)),
+    yhat2 = 0.0732608 + 5.685033*x, 
+    uhat1 = residuals(lm(y ~ x, .)),
+    uhat2 = y - yhat2
+  ) # How close are our predictions? 
+
+summary(tb[-1:-3])
+```
+
+The most common visualization, especially for a one-dimensional regression, is just to plot the line against the data. Look closely at this command and let's walk through the syntax as we develop the plot.
+
+```{r reg-viz-2}
+tb %>% 
+  lm(y ~ x, .) %>% 
+  ggplot(aes(x=x, y=y)) + 
+  ggtitle("OLS Regression Line") +
+  geom_point(size = 0.05, color = "black", alpha = 0.5) +
+  geom_smooth(method = lm, color = "black") +
+  annotate("text", x = -1.5, y = 30, color = "red", 
+           label = paste("Intercept = ", -0.0732608)) +
+  annotate("text", x = 1.5, y = -30, color = "blue", 
+           label = paste("Slope =", 5.685033)) + 
+  theme_classic() + labs(x="X", y="Y")
+```
+
+### Measures of Regression performance
+
+Let's calculate the R-squared by hand first:
+
+```{r r2-manual}
+SST <- tb %>% mutate(ybar=mean(y), sst=(y-ybar)^2) %>% select(sst) %>% summarise(sum(sst))
+SSE <- tb %>% mutate(ybar=mean(y), sse=(yhat1-ybar)^2) %>% select(sse) %>% summarise(sum(sse))
+SSR <- tb %>% mutate(ssr=uhat1^2) %>% select(ssr) %>% summarise(sum(ssr))
+
+R2 <- SSE/SST
+print(paste0("The R-squared is ", round(as.numeric(R2)*100,digits=2), "%", sep=""))
+```
+
+You can also retrieve it straight from the lm command (this is almost always true for whatever regression object you might want!)
+
+```{r r2}
+summary(reg_tb) # Full summary
+round(summary(reg_tb)$r.squared,digits=4) # Specifically, the r-squared
+```
+
+### Unbiasedness of our regressions
+
+We've already shown that our model does reasonably well matching the truth, but can we show that in general? Let's try another simulation.
+
+First, let's start with a population model (which we assume we know, in order to show that our regression can approach it):
+
+$$ y = 3 + 2x + \varepsilon.$$ We will assume that $x$ and $\varepsilon$ are normally distributed, with $x \sim \mathcal{N}(0,9)$ and $\varepsilon \sim \mathcal{N}(0,36)$. We assume all the standard regression assumptions are met, so that $x$ and $\varepsilon$ are independent.
+
+Let's use this DGP to create a random sample of data ($N$=10,000) and run a regression. We will repeat this procedure 1,000 times, storing the regression coefficients each time.
+
+```{r unbiasedness}
+lm <- lapply( # lapply is a useful command (see ?lapply to access documentation)
+  1:1000,
+  function(x) tibble(
+    x = 9*rnorm(10000), # Distribution for x (rnorm(N) creates N random draws from a N(0,1) distribution)
+    u = 36*rnorm(10000), # Distribution for e
+    y = 3 + 2*x + u
+  ) %>% 
+    lm(y ~ x, .)
+) # This runs 1,000 regressions with new data every time
+# lapply is useful here since we want to resample data *and* do a regression at the same time. 
+```
+
+What are the results of this simulation? Let's make a table and a graph.
+
+```{r unbiasedness-results}
+as_tibble(t(sapply(lm, coef))) %>%
+  summary(x) # Summarize the regression coefficients (tabular)
+
+as_tibble(t(sapply(lm, coef))) %>% 
+  ggplot()+
+  geom_histogram(aes(x), binwidth = 0.01,fill="gray",color='black') + 
+  theme_minimal() + 
+  labs(x="Estimated Slope Coefficient", y="Count",title="Distribution of Slope Coefficients") + 
+  geom_vline(xintercept=2,color='red')
+```
+
+
+## Control Variables
+
+First, let's explore the relationship between A1C checks and hospitalizations. We'll use some fake data for this, so don't trust any of the results you see reported here! 
+
+```{r fake-data,echo=F}
+# Create a data set of 1000 physicians, with some rates of hospitalizations, A1Cs, and average patient education (in years)
+
+covmat <- matrix(c(1,.5,-.2,.5,1,.5,-.2,.5,1),nrow=3,ncol=3) # Covariance matrix used to simulate the data
+mydata <- rnorm_multi(1000,3,0,1,covmat,varnames=c("hospitalizations","a1cs","education"))
+view(mydata) # this command lets us look at the data (but we don't want it to print out into the rmd, hence the echo=F)
+```
+
+### How do controls change the results?
+
+If we don't include controls, we get a simple regression of just the effect of A1Cs on hospitalizations: 
+```{r simple}
+lm_simple <- lm(hospitalizations ~ a1cs, data=mydata)
+summary(lm_simple)
+```
+
+But if we control for average patient education, the results change: 
+
+```{r control-education}
+# Now, control for education 
+lm_complex <- lm(hospitalizations ~ a1cs + education, data=mydata)
+summary(lm_complex)
+```
+
+## Inference in regression 
+
+### How to obtain standard errors
+Just like a lot of other things, standard errors are stored in the lm object! 
+
+```{r ses}
+myout <- summary(lm_complex)
+myout$coefficients[,2]
+```
+
+### Hypothesis testing
+
+Let's start with a population model where: 
+$$ y = 3 + .2x + \varepsilon, \varepsilon \sim \mathcal{N}(0,1).$$
+
+We will use this DGP to create a small data set ($N=200$) and run a simple regression. Then, we will save the coefficient $\beta_1$ and its standard error. 
+```{r hyp-test}
+set.seed(0326)
+nulldata <- tibble(x=rnorm(200),
+                 epsilon=rnorm(200),
+                 y=3+.2*x+epsilon)
+m1 <- lm(y ~ x,data=nulldata)
+out <- summary(m1) # I get a first estimate of beta = 0.12, and a SE = 0.064
+myse <- out$coefficients[2,2] # store the SE
+```
+
+Our test, formally, is of the null hypothesis: 
+
+$$ \mathcal{H}_0: \beta_1 = 0. $$
+Let's plot our regression estimate against the sampling distribution of the null hypothesis
+```{r hyp-test-2} 
+myalf <- .05 # State the rejection probability
+
+# Plot my estimate against the sampling distribution of the null hypothesis 
+graphdata <- tibble(x=rnorm(1e4,mean=0,sd=myse), # normal distribution
+                    xrej = ifelse(x >= qnorm(1-(myalf)/2, mean=0, sd=myse),x,NA), # x's that fall in the rejection region based on alpha
+                    xrej2 = ifelse(-x >= qnorm(1-(myalf)/2, mean=0, sd=myse),x,NA), # x's that fall in the rejection region based on alpha
+                    y=dnorm(x,mean=0,sd=myse)
+)
+
+ ggplot(data=graphdata) + 
+  geom_density(aes(x)) + 
+  geom_area(data=subset(graphdata, !is.na(xrej)),aes(x=x,y=y),fill="gray") + 
+   geom_area(data=subset(graphdata, !is.na(xrej2)),aes(x=x,y=y),fill="gray") + 
+  geom_vline(xintercept=0.12,linetype='dashed',color='red') + 
+  theme_minimal() + 
+  labs(x="Estimated Beta",y="Density")
+```
+
+So what do we conclude from the test? 
+
+#### One-sided testing
+
+What happens if I perform a one-sided test? This changes the rejection region (is that disingenious?)
+```{r hyp-test-3} 
+graphdata <- tibble(x=rnorm(1e5,mean=0,sd=myse), # normal distribution
+                     xrej = ifelse(x >= qnorm(1-(myalf), mean=0, sd=myse),x,NA), 
+                        # x's that fall in the rejection region based on alpha
+                     y=dnorm(x,mean=0,sd=myse)
+ )
+ 
+ ggplot(data=graphdata) + 
+   geom_density(aes(x)) + 
+   geom_area(data=subset(graphdata, !is.na(xrej)),aes(x=x,y=y),fill="gray") + 
+   geom_vline(xintercept=0.12,linetype='dashed',color='red') + 
+   theme_minimal() + 
+   labs(x="Estimated Beta",y="Density")
+```
+
+#### Statistical power
+
+In general, adding more data adds to our statistical power -- the probability that we will uncover an effect that is truly in the DGP. Let's increase our sample size to 20,000 and see how this affects our standard error (and hence, our test statistic)
+
+```{r hyp-test-4}
+ nulldata <- tibble(x=rnorm(20000),
+                  epsilon=rnorm(20000),
+                  y=3+.2*x+epsilon)
+ m1 <- lm(y ~ x,data=nulldata)
+ out <- summary(m1) # 
+ out
+ myse <- out$coefficients[2,2] # store the SE
+ 
+ graphdata <- tibble(x=rnorm(1e5,mean=0,sd=myse), # normal distribution
+                     xrej = ifelse(x >= qnorm(1-(myalf)/2, mean=0, sd=myse),x,NA), 
+                        # x's that fall in the rejection region based on alpha
+                     xrej2 = ifelse(-x >= qnorm(1-(myalf)/2, mean=0, sd=myse),x,NA), 
+                        # x's that fall in the rejection region based on alpha
+                     y=dnorm(x,mean=0,sd=myse)
+ )
+ 
+ ggplot(data=graphdata) + 
+   geom_density(aes(x)) + 
+   geom_area(data=subset(graphdata, !is.na(xrej)),aes(x=x,y=y),fill="gray") + 
+   geom_area(data=subset(graphdata, !is.na(xrej2)),aes(x=x,y=y),fill="gray") + 
+   geom_vline(xintercept=0.12,linetype='dashed',color='red') + 
+   theme_minimal() + 
+   labs(x="Estimated Beta",y="Density")
+ 
+# Calculate p-value of our estimated beta
+1-pnorm(out$coefficients[2,1],mean=0,sd=out$coefficients[2,2])
+
+# Calculate the t-statistic of our estimated beta
+out$coefficients[2,1]/out$coefficients[2,2] # Here, critical value is 1.96
+```
+
+## Dummy Variables
+
+Let's add another control in the form of a dummy variable: physician sex (we want this to be binary for the purposes of the regression, so we will use sex instead of gender identity).
+
+```{r unorganized}
+mydata <- mydata %>% mutate(female = ifelse(runif(nrow(mydata))>0.6, 1, 0),
+                            male = 1-female)
+
+# What is the gender composition of our sample?
+summary(mydata$female)
+```
+
+Now let's include this dummy variable in the regression, and compare all three results in a regression table using modelsummary 
+
+```{r dummy-reg}
+# Linear model with dummy variable included
+lm_dummy <- lm(hospitalizations ~ a1cs + education + female, data=mydata)
+summary(lm_dummy) # What does it mean that this is significant? Should it be? 
+  # Return to this at the end of the lecture when we talk about validity traps
+
+# Let's make a regression table for ease of interpretation
+msummary(list("Simple"=lm_simple,"One Control"=lm_complex,"Full"=lm_dummy),
+         stars=c('*' = .1, '**' = .05, '***' = .01))
+```
+
+### Dummy Variable Trap
+
+What happens if we include both $1\{male\}$ and $1\{female\}$ in a regression? 
+
+```{r dvt}
+lm_dummytrap <- lm(hospitalizations ~ a1cs + education + female + male, data=mydata)
+summary(lm_dummytrap)
+  # Code can usually detect the dummy variable trap, but don't count on it! 
+```
+
+### Multiple dummy variables
+
+Finally, how does this change if we have multiple dummy variables in a set? Let's consider the region in which each physician practices. 
+
+```{r region} 
+mydata <- mydata %>% mutate(region = sample(seq(1:4),size=nrow(mydata),replace=TRUE)) 
+  # Generate a random region variable for restaurants 
+
+# Suppose that 1=West, 2=Midwest, 3=South, 4=East
+# Need to generate three dummy variables for the regression 
+mydata <- mydata %>% mutate(region_west = (region == 1), 
+                      region_midwest = (region == 2), 
+                      region_south = (region == 3))
+lm_region <- lm(hospitalizations ~ a1cs + education + female + region_west + region_midwest + region_south, data=mydata)
+msummary(list("No Regions"=lm_dummy, "With Region Controls"=lm_region),
+         stars=c('*' = .1, '**' = .05, '***' = .01)) 
+  # Why aren't our other coefficients changed? Thoughts? 
+
+# # Joint test of significance -- helpful to consider after lecture
+# library('lmtest')
+# lmtest::waldtest(lm_dummy, lm_region) # Run a version of the regression without the variables you want to test, 
+# # and one with full set of coefficients. Then use waldtest to test difference
+```
+
+## Making a Regression Table
+
+### Preliminaries 
+
+When making and saving outputs, you want your code (and outputs) to be **completely replicable**. You will absolutely have to make these figures and tables more times than you think you should reasonably have to! 
+
+So make sure you have: 
+1. An R project set up
+2. A command that points R to a directory **regardless of your machine** 
+    a. This is where the "here" package comes in handy
+3. Consistent project organization (folders) with dates for each replication of a figure
+
+```{r reg-tables}
+# Make sure your directory is working
+here() # Note: this will be the directory your project is stored in
+
+# Some sample data for our table construction
+res <- causaldata::restaurant_inspections
+
+res <- res %>%
+  # Create NumberofLocations
+  group_by(business_name) %>%
+  mutate(NumberofLocations = n())
+summary(res$NumberofLocations)
+
+## Let's run our regression models
+m1 <- lm(inspection_score ~ NumberofLocations, data = res)
+m2 <- lm(inspection_score ~ NumberofLocations + Year, data = res)
+
+# Give msummary a list() of the models we want in our table
+# and save to a file using the here() library
+# Note that you select the file type (html, pdf, etc.)
+# (see help(msummary) for other options)
+msummary(list("Simple"=m1,"Full"=m2),
+         stars=TRUE,
+         output= here('regression_table.html')) 
+# If you want a folder within your directory, you would say here("Output", "RegressionTable.html")
+
+# Default significance stars are +/*/**/*** .1/.05/.01/.001. Social science
+# standard */**/*** .1/.05/.01 can be restored with stars=c('*' = .1, '**' = .05, '***' = .01)
+```
+
+
+## Effect of an outlier in a regression
+
+Even a single outlier can change your regression by a lot! This is why nonlinear transformations can be so useful. This code creates an animation to show the effect of including/excluding a single outlier on a regression:
+
+```{r animate-outliers}
+library(gganimate)
+
+# Main data
+animatedata <- data.frame(x=rnorm(n=100,mean=5,sd=2))
+animatedata <- animatedata %>% mutate(y=-.5*x+rnorm(n=100,mean=0,sd=.25))
+
+# Duplicate each row (for transition in animation)
+animatedata <- animatedata %>% bind_rows(animatedata)
+animatedata$transition <- 0
+animatedata[101:200,]$transition <- 1
+
+# Add (one big) outlier to the second set of data 
+animatedata[201,] <- c(20,-20,1) 
+
+# Scatter plot with outlier
+ggplot(animatedata,aes(x=x,y=y)) + geom_point() + theme_classic()
+
+# Scatter plot without outlier
+animatedata %>% filter(transition == 0) %>% ggplot(aes(x=x,y=y)) + geom_point() + theme_classic()
+
+# To make animated data, need to duplicate rows for all data points in both states (add/subtract only outlier)
+
+animfig <- ggplot(animatedata,aes(x=x,y=y)) + 
+  geom_point() + 
+  geom_smooth(data=animatedata,aes(x=x,y=y),method='lm') + 
+  # Here comes the gganimate code
+  transition_states(
+    transition,
+    transition_length = 1,
+    state_length = 1
+  ) +
+  enter_fade() + 
+  exit_shrink() +
+  ease_aes('linear') + 
+  theme_classic()
+animate(animfig)
+anim_save(filename=here("RegressionOutlier.gif"),animation=animfig)
+```
+
+## Interaction Terms
+
+Our question will be: what is the effect of education on wages? We can estimate a simple regression controlling only for education and experience -- for now, assume that this is a fully specified model.
+
+```{r mydata}
+mydata <- causaldata::close_college
+
+# First pass: simple regression in levels
+mydata <- mydata %>% mutate(wage = exp(lwage))
+m_levels <- lm(wage ~ educ + exper, data=mydata)
+
+m1 <- lm(lwage ~ educ + exper, data=mydata)
+msummary(list("levels"=m_levels, "log_y"=m1),
+         stars=c('*' = .1, '**' = .05, '***' = .01)) 
+```
+
+But what if we think the returns to education will differ across race? Let's use an interaction model to examine heterogeneous treatment effects here. Recall that in an interaction model we need to include **all level terms** of our variables of interest, not just the interactions.
+
+```{r interactions}
+# How does the effect of education differ across race?
+m2 <- lm(lwage ~ educ + exper + black + educ:black, data=mydata)
+msummary(list(m1,m2),
+         stars=c('*' = .1, '**' = .05, '***' = .01)) 
+
+# What if we had left out the main effect?
+m3 <- lm(lwage ~ educ + exper + educ:black, data=mydata)
+msummary(list(m1,m2,m3),
+         stars=c('*' = .1, '**' = .05, '***' = .01)) 
+```
+
+## Polynomial Models
+
+What if we think experience has a nonlinear effect on wages? Why might this be true?
+
+Let's model this nonlinearity by including a squared term in the regression
+
+```{r nonlinear}
+ggplot(data=mydata,aes(x=exper,y=lwage)) + geom_point() + 
+  theme_minimal() + labs(x="Experience (Years)",y="Wages") + 
+  geom_smooth(method='lm', formula= y~x)
+
+# What if we add in a squared term? 
+ggplot(data=mydata,aes(x=exper,y=lwage)) + geom_point() + 
+  theme_minimal() + labs(x="Experience (Years)",y="Wages") + 
+  stat_smooth(method="lm", se=TRUE, fill=NA,
+              formula=y ~ poly(x, 2, raw=TRUE),colour="red")
+```
+
+How do our results change if we increase the order of the polynomial we fit? Why should/shouldn't we do this?
+
+```{r higher-order}
+# What about a cubic term? 
+ggplot(data=mydata,aes(x=exper,y=lwage)) + geom_point() + 
+  theme_minimal() + labs(x="Experience (Years)",y="Wages") + 
+  stat_smooth(method="lm", se=TRUE, fill=NA,
+              formula=y ~ poly(x, 3, raw=TRUE),colour="red")
+
+# Higher order terms? 
+n <- 10 # You pick a polynomial
+ggplot(data=mydata,aes(x=exper,y=lwage)) + geom_point() + 
+  theme_minimal() + labs(x="Experience (Years)",y="Wages") + 
+  stat_smooth(method="lm", se=TRUE, fill=NA,
+              formula=y ~ poly(x, n, raw=TRUE),colour="red")
+```
+
+## Standard Errors
+
+### Heteroskedasticity
+
+Let's check if our assumption of homoskedasticity is satisfied.
+
+```{r plot-variance}
+mydata <- mydata %>% mutate(wage=exp(lwage))
+ggplot(mydata,aes(x=educ,y=wage)) + geom_point() + theme_minimal()
+```
+
+Clearly, this assumption fails. Let's implement robust standard errors in our regressions
+
+```{r robust-ses}
+m1 <- lm(lwage ~ educ + exper + black + married + nearc4 + educ:black + exper:black, data=mydata)
+msummary(list("naive"=m1),
+         stars=c('*' = .1, '**' = .05, '***' = .01))
+
+# Same model with robust standard errors
+msummary(list("naive"=m1,"robust"=m1),
+         vcov=c("classical","robust"),
+         stars=c('*' = .1, '**' = .05, '***' = .01))
+```
+
+### Clustering
+
+Now, suppose that we have data on geography (US State). What if the returns to education/experience are correlated within states in unique ways? Why might this be true?
+
+```{r clustered-ses}
+mydata$state <- unlist(causaldata::abortion[1:3010,1])
+m1 <- lm(lwage ~ educ + exper + black + married + nearc4 + educ:black + exper:black, data=mydata)
+
+msummary(list("naive"=m1,"robust"=m1,"Clustered"=m1),
+         vcov=c("classical","robust",~state),
+         stars=c('*' = .1, '**' = .05, '***' = .01))
+```
+
+### Bootstrapping standard errors
+
+For whatever reason, you may need to bootstrap your standard errors. This is a sample code for how you might do that.
+
+```{r bootstrap}
+numiter <- 1000 # Number of times you want to sample
+sizesample=nrow(mydata) # Size of the sample you want to take
+
+# Create a place to store the coefficients
+allbetas <- rep(NA,numiter)
+
+# Run the loop
+for (i in 1:numiter) { 
+  sampledata <- mydata[sample(nrow(mydata), sizesample,replace=T), ]
+  samplemodel <- lm(lwage ~ educ + exper + black + married + nearc4 + educ:black + exper:black, data=sampledata)
+  allbetas[i] <- samplemodel$coefficients[2] # Effect of education on lwage
 }
-hist(allsamples)
-```
 
-```{r normal-dist}
-# If you want to sample from a normal distribution:
-sample_normal <- rnorm(n=1000,mean=5,sd=10)
-hist(sample_normal) # think: how would you standardize this?
+# Represent graphically
+allbetas <- tibble(allbetas)
+ggplot(allbetas,aes(x=allbetas)) + geom_histogram(fill='gray',color="black") + theme_minimal() + 
+  labs(x="Estimated Betas",y="Count") + geom_vline(xintercept=0.077,color="red",size=2)
 
-# Standardize sample_normal
-sample_normal2 <- (sample_normal - mean(sample_normal))/sd(sample_normal)
-sample_normal3 <- (sample_normal-5)/10
-
-# First, pdf
-pnorm(q=0,mean=0,sd=1)
-pnorm(q=10,mean=5,sd=10) # what is the probability that a normal draw is less than 10?
-
-# Second, cdf
-dnorm(x=10,mean=5,sd=10) # this gives the density
-
-# Third, quantiles
-
-# Identify the 5th and 95th percentiles of a normal distribution with mean 5 and sd 10
-qnorm(p=c(0.05,0.95),mean=5,sd=10)
-qnorm(p=c(.1,.2,.3,.4,.5,.6,.7,.8,.9,1),mean=5,sd=10) # quantiles of the distribution
-
-# Fourth, critical values
-qnorm(p=c(.025,.975),mean=5,sd=10) # two-sided quantiles of the distribution
-```
-
-## Sampling and standard errors
-Let's suppose that we have a population (we don't) from which we repeatedly sample and estimate a mean. For this one, we will use data on COVID prevalence.
-```{r sample-data}
-# install.packages("medicaldata")
-library(medicaldata)
-
-data(package = "medicaldata") # this will show you the full list of data sets
-# https://higgi13425.github.io/medicaldata/
-
-# Let's use the covid-testing data
-mydata <- covid_testing # Suppose that this is the population
-
-# If we want to take samples of 500 patients each
-sample1 <- mydata %>% sample_n(500, replace=TRUE)
-sample1 %>% mutate(positive = (result == "positive")*100) %>% # generate new variable (in %)
-  ungroup() %>% select(positive) %>% summarize_all(mean) # summarize average value
-
-# What if we take 100 of these samples?
-allsamples <- rep(NA, 100) # empty frame to store results
-for (i in 1:10) {
- test <- mydata %>% sample_n(500, replace=TRUE)
-  allsamples[i] <- test %>% mutate(positive = (result == "positive")*100) %>% # generate new variable (in %)
-  ungroup() %>% select(positive) %>% summarize_all(mean) %>% as.numeric() # summarize average value
-  rm(test)
-}
-hist(allsamples)
-sd(allsamples) # This is a measure of variability
-
-# What about calculating SEs directly in the pouplation?
-mydata <- mydata %>% mutate(positive = (result == "positive")*100)
-summary <- mydata %>% select(positive) %>% summarize(mean = mean(positive),
-                                                         sd=sd(positive), n=n())
-summary$sd/sqrt(summary$n) # this is the standard error for our mean
-
-# note: any concerns with this? technically the test is a binomial random variable, so we would actually need a different way of calculating se
-mydata <- mydata %>% mutate(positive_frac = positive/100) # in decimals rather than percents
-# we then use the formula for the standard error of a proportion
-summary1 <- mydata %>% select(positive_frac) %>% summarize(mean = mean(positive_frac),
-                                                         sd=sd(positive_frac), n=n())
-sqrt(summary1$mean*(1-summary1$mean)/summary1$n) # note that this isn't very different in this case (need to convert between percentages and decimals).
-```
-
-Now, let's talk about *plotting* uncertainty. What if we wanted to plot average positive rate across age bins?
-```{r data-viz-uncertainty}
-# first, create some age bins
-mydata <- mydata %>% mutate(agebin = ifelse(age < 18, 1,
-                                            ifelse(age >= 18 & age < 30, 2,
-                                                            ifelse(age >= 30 & age < 65, 3, 4))))
-
-# now without uncertainty, how can we plot
-ggplot(mydata) +
-  geom_bar(aes(as.factor(agebin), positive,fill=as.factor(agebin)),
-           position = "dodge", stat = "summary", fun.y = "mean") +
-  theme_classic() + labs(x="Age Bin", y="% Positive", fill="") # what do we think here?
-
-# now how to add uncertainty -- error bars
-mydata <- mydata %>% group_by(agebin) %>% mutate(mean = mean(positive),  
-                                                 sd=sd(positive),      
-                                                 se = sd/sqrt(n()))
-      # varies within groups)
-ggplot(mydata) +
-  geom_bar(aes(as.factor(agebin), positive,fill=as.factor(agebin)),
-           position = "dodge", stat = "summary", fun.y = "mean") +
-  theme_classic() + labs(x="Age Bin", y="% Positive", fill="") +
-  geom_errorbar(aes(x=as.factor(agebin), ymin=mean-sd, ymax=mean+sd), width=.2,position=position_dodge(.9)) # What happens if I just add SDs?
-
-ggplot(mydata) +
-  geom_bar(aes(as.factor(agebin), positive,fill=as.factor(agebin)),
-           position = "dodge", stat = "summary", fun.y = "mean") +
-  theme_classic() + labs(x="Age Bin", y="% Positive", fill="") +
-  geom_errorbar(aes(x=as.factor(agebin), 
-                    ymin=mean-1.96*se, ymax=mean+1.96*se), width=.2,position=position_dodge(.9)) # Now what's the story?
-```
-
-## Calculating confidence intervals
-Note that we already built a confidence interval! All we need to do is appropriately adjust the standard error in the graph above. So how do we interpret it?
-
-Suppose we want to calculate these directly. Can we? Yes!
-```{r ci}
-# confidence intervals across agebins
-mydata %>%
-  group_by(agebin) %>%
-  summarise(ci = list(mean_cl_normal(positive) %>%
-                        rename(mean=y, lwr=ymin, upr=ymax))) %>%
-  unnest(cols=c(ci)) # what do we think about this? How could we present it?
-
-# calculate the 90% confidence interval of positive in mydata
-mean_cl_normal(mydata$positive, conf.int = .9) 
-
-# now suppose that we want a different level of confidence
-ci_95 <- mydata %>%
-  group_by(agebin) %>%
-  summarise(ci = list(mean_cl_normal(positive*100) %>%
-                        rename(mean=y, lwr=ymin, upr=ymax))) %>%
-  unnest(cols=c(ci)) # what do we think about this? How could we present it?
-ci_99 <- mydata %>%
-  group_by(agebin) %>%
-  summarise(ci = list(mean_cl_normal(positive*100,conf.int=.99) %>%
-                        rename(mean=y, lwr=ymin, upr=ymax))) %>%
-  unnest(cols=c(ci)) # what do we think about this? How could we present it?
-```
-
-### Confidence intervals for proportions vs. means
-Let's get a little more specific into confidence intervals for proportions vs. means
-```{r ci-proportions}
-# When we have a binary outcome variable, we can calculate SEs and CIs based on the binomial distribution
-
-# Let's look at how the CIs would be different if we ignored this
-# For this example, consider test positivity across groups of "payors" for the test
-mydata <- mydata %>% group_by(payor_group) %>%
-  mutate(mymean = mean(positive_frac,na.rm=T),
-         sd = sd(positive_frac),
-         mycount = n())
-mydata <- mydata %>% mutate(invmean = 1 - mymean)
-mydata <- mydata %>% mutate(se_mean = sd/sqrt(mycount),
-                            se_prop = sqrt(mymean*(1-mymean)/mycount), 
-                            diff = se_mean-se_prop)
-
-# How different are these? Let's make a histogram of mydata$diff
-mydata %>% filter(abs(diff) < 1e-5) %>% 
-  ggplot() + geom_histogram(aes(diff),bins=20) + theme_classic() + 
-  labs(x="Difference in SEs", y="Count") # Very small!
-
-# Compare the confidence intervals
-mydata %>% filter(!is.na(payor_group)) %>% ggplot() +
-  geom_bar(aes(as.factor(payor_group), positive_frac,fill=as.factor(payor_group)),
-           position = "dodge", stat = "summary", fun = "mean") +
-  theme_classic() + labs(x="Payor Group", y="% Positive", fill="") +
-  geom_errorbar(aes(x=as.factor(payor_group),
-                    ymin=(mymean-1.96*se_mean), ymax=(mymean+1.96*se_mean)),
-                width=.2,position=position_dodge(.9)) +
-    geom_errorbar(aes(x=as.factor(payor_group),
-                    ymin=(mymean-1.96*se_prop), ymax=(mymean+1.96*se_prop)),
-                width=.2,position=position_dodge(.9),color='brown') +
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
-# What do we think about this overall, and then comparing the two types of error bars?
-```
-
-### CIs for Poisson data
-Suppose that we wanted to say something about *how many* tests each individual got, rather than the outcome of tests. That is, what if we were worried about differential access to testing?
-```{r poisson}
-# to get some fake data on this, let's collapse by first name in the dataset
-collapsed <- mydata %>% group_by(fake_first_name) %>% summarize(tests = n())
-hist(collapsed$tests) # Look Poisson enough?
-
-summary(collapsed$tests) # note the skew
-# but we don't need a package to get SEs!
-collapsed %>% ungroup() %>% summarize(mean = mean(tests), n = n()) %>%
-  mutate(se = sqrt(mean/n)) %>% select(se)
-
-# Now how can you plot this? Make a CI? Try it!
-```
-
-### CIs for differences in means
-Finally, let's test for the difference between means/proportions across two groups: men and women. We'll look at a continuous variable (time to first test) and a binary variable (positivity rates)
-
-```{r diff-means}
-# First, let's do a difference in means
-t.test(pan_day ~ gender, data = mydata, var.equal = FALSE)
-
-# Second, let's do a difference in proportions
-# install.packages('tidymodels') # note: this takes a while
-library(tidymodels)
-testdata <- mydata %>% ungroup() %>% select(positive_frac, gender) %>% 
-  mutate(positive_frac = as.factor(positive_frac), 
-        gender = as.factor(gender))
-# prop_test(testdata,detailed=TRUE)
-```
-
-
-## Survival Curves
-Let's plot how long people "last" before a test across groups (let's go back to agebins). We can use the "pan_day" variable here since it already has a helpful time 0.
-
-```{r survival}
-# Need some packages
-# install.packages(c("survival", "survminer"))
-library("survival")
-library("survminer")
-
-# Need to define a "time 0"
-hist(mydata$pan_day)
-
-# Now we can do survival based on bins
-fit <- survfit(Surv(pan_day) ~ agebin, data = mydata)
-print(fit) # What do we take from this?
-
-# Let's plot!
-ggsurvplot(fit,
-          pval = TRUE, conf.int = TRUE,
-          risk.table = TRUE, # Add risk table
-          risk.table.col = "strata", # Change risk table color by groups
-          linetype = "strata", # Change line type by groups
-          surv.median.line = "hv", # Specify median survival
-          ggtheme = theme_bw(), # Change ggplot2 theme
-          palette = c("#E7B800", "#2E9FDF", "palegreen", "mediumpurple1"))
-
-# how do we make sense of this?
+sd(allbetas$allbetas) # This gives us a bootstrapped SE remarkably similar to the regression approach
 ```
 
 ## Package Citations
