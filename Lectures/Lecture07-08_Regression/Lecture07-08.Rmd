@@ -49,7 +49,9 @@ tb <- tibble(
 In this case, what happens when we run a regression of $y$ on $x$?
 
 ```{r simple-reg}
-tb %>% lm(y ~ x, .) 
+tb %>% lm(y ~ x, .) %>% summary()
+
+lm(y~x, data=tb) # This is the same as the above command
 ```
 
 ### Visualizing Regressions
@@ -180,112 +182,6 @@ But if we control for average patient education, the results change:
 lm_complex <- lm(hospitalizations ~ a1cs + education, data=mydata)
 summary(lm_complex)
 ```
-
-## Inference in regression 
-
-### How to obtain standard errors
-Just like a lot of other things, standard errors are stored in the lm object! 
-
-```{r ses}
-myout <- summary(lm_complex)
-myout$coefficients[,2]
-```
-
-### Hypothesis testing
-
-Let's start with a population model where: 
-$$ y = 3 + .2x + \varepsilon, \varepsilon \sim \mathcal{N}(0,1).$$
-
-We will use this DGP to create a small data set ($N=200$) and run a simple regression. Then, we will save the coefficient $\beta_1$ and its standard error. 
-```{r hyp-test}
-set.seed(0326)
-nulldata <- tibble(x=rnorm(200),
-                 epsilon=rnorm(200),
-                 y=3+.2*x+epsilon)
-m1 <- lm(y ~ x,data=nulldata)
-out <- summary(m1) # I get a first estimate of beta = 0.12, and a SE = 0.064
-myse <- out$coefficients[2,2] # store the SE
-```
-
-Our test, formally, is of the null hypothesis: 
-
-$$ \mathcal{H}_0: \beta_1 = 0. $$
-Let's plot our regression estimate against the sampling distribution of the null hypothesis
-```{r hyp-test-2} 
-myalf <- .05 # State the rejection probability
-
-# Plot my estimate against the sampling distribution of the null hypothesis 
-graphdata <- tibble(x=rnorm(1e4,mean=0,sd=myse), # normal distribution
-                    xrej = ifelse(x >= qnorm(1-(myalf)/2, mean=0, sd=myse),x,NA), # x's that fall in the rejection region based on alpha
-                    xrej2 = ifelse(-x >= qnorm(1-(myalf)/2, mean=0, sd=myse),x,NA), # x's that fall in the rejection region based on alpha
-                    y=dnorm(x,mean=0,sd=myse)
-)
-
- ggplot(data=graphdata) + 
-  geom_density(aes(x)) + 
-  geom_area(data=subset(graphdata, !is.na(xrej)),aes(x=x,y=y),fill="gray") + 
-   geom_area(data=subset(graphdata, !is.na(xrej2)),aes(x=x,y=y),fill="gray") + 
-  geom_vline(xintercept=0.12,linetype='dashed',color='red') + 
-  theme_minimal() + 
-  labs(x="Estimated Beta",y="Density")
-```
-
-So what do we conclude from the test? 
-
-#### One-sided testing
-
-What happens if I perform a one-sided test? This changes the rejection region (is that disingenious?)
-```{r hyp-test-3} 
-graphdata <- tibble(x=rnorm(1e5,mean=0,sd=myse), # normal distribution
-                     xrej = ifelse(x >= qnorm(1-(myalf), mean=0, sd=myse),x,NA), 
-                        # x's that fall in the rejection region based on alpha
-                     y=dnorm(x,mean=0,sd=myse)
- )
- 
- ggplot(data=graphdata) + 
-   geom_density(aes(x)) + 
-   geom_area(data=subset(graphdata, !is.na(xrej)),aes(x=x,y=y),fill="gray") + 
-   geom_vline(xintercept=0.12,linetype='dashed',color='red') + 
-   theme_minimal() + 
-   labs(x="Estimated Beta",y="Density")
-```
-
-#### Statistical power
-
-In general, adding more data adds to our statistical power -- the probability that we will uncover an effect that is truly in the DGP. Let's increase our sample size to 20,000 and see how this affects our standard error (and hence, our test statistic)
-
-```{r hyp-test-4}
- nulldata <- tibble(x=rnorm(20000),
-                  epsilon=rnorm(20000),
-                  y=3+.2*x+epsilon)
- m1 <- lm(y ~ x,data=nulldata)
- out <- summary(m1) # 
- out
- myse <- out$coefficients[2,2] # store the SE
- 
- graphdata <- tibble(x=rnorm(1e5,mean=0,sd=myse), # normal distribution
-                     xrej = ifelse(x >= qnorm(1-(myalf)/2, mean=0, sd=myse),x,NA), 
-                        # x's that fall in the rejection region based on alpha
-                     xrej2 = ifelse(-x >= qnorm(1-(myalf)/2, mean=0, sd=myse),x,NA), 
-                        # x's that fall in the rejection region based on alpha
-                     y=dnorm(x,mean=0,sd=myse)
- )
- 
- ggplot(data=graphdata) + 
-   geom_density(aes(x)) + 
-   geom_area(data=subset(graphdata, !is.na(xrej)),aes(x=x,y=y),fill="gray") + 
-   geom_area(data=subset(graphdata, !is.na(xrej2)),aes(x=x,y=y),fill="gray") + 
-   geom_vline(xintercept=0.12,linetype='dashed',color='red') + 
-   theme_minimal() + 
-   labs(x="Estimated Beta",y="Density")
- 
-# Calculate p-value of our estimated beta
-1-pnorm(out$coefficients[2,1],mean=0,sd=out$coefficients[2,2])
-
-# Calculate the t-statistic of our estimated beta
-out$coefficients[2,1]/out$coefficients[2,2] # Here, critical value is 1.96
-```
-
 ## Dummy Variables
 
 Let's add another control in the form of a dummy variable: physician sex (we want this to be binary for the purposes of the regression, so we will use sex instead of gender identity).
@@ -345,93 +241,6 @@ msummary(list("No Regions"=lm_dummy, "With Region Controls"=lm_region),
 # # and one with full set of coefficients. Then use waldtest to test difference
 ```
 
-## Making a Regression Table
-
-### Preliminaries 
-
-When making and saving outputs, you want your code (and outputs) to be **completely replicable**. You will absolutely have to make these figures and tables more times than you think you should reasonably have to! 
-
-So make sure you have: 
-1. An R project set up
-2. A command that points R to a directory **regardless of your machine** 
-    a. This is where the "here" package comes in handy
-3. Consistent project organization (folders) with dates for each replication of a figure
-
-```{r reg-tables}
-# Make sure your directory is working
-here() # Note: this will be the directory your project is stored in
-
-# Some sample data for our table construction
-res <- causaldata::restaurant_inspections
-
-res <- res %>%
-  # Create NumberofLocations
-  group_by(business_name) %>%
-  mutate(NumberofLocations = n())
-summary(res$NumberofLocations)
-
-## Let's run our regression models
-m1 <- lm(inspection_score ~ NumberofLocations, data = res)
-m2 <- lm(inspection_score ~ NumberofLocations + Year, data = res)
-
-# Give msummary a list() of the models we want in our table
-# and save to a file using the here() library
-# Note that you select the file type (html, pdf, etc.)
-# (see help(msummary) for other options)
-msummary(list("Simple"=m1,"Full"=m2),
-         stars=TRUE,
-         output= here('regression_table.html')) 
-# If you want a folder within your directory, you would say here("Output", "RegressionTable.html")
-
-# Default significance stars are +/*/**/*** .1/.05/.01/.001. Social science
-# standard */**/*** .1/.05/.01 can be restored with stars=c('*' = .1, '**' = .05, '***' = .01)
-```
-
-
-## Effect of an outlier in a regression
-
-Even a single outlier can change your regression by a lot! This is why nonlinear transformations can be so useful. This code creates an animation to show the effect of including/excluding a single outlier on a regression:
-
-```{r animate-outliers}
-library(gganimate)
-
-# Main data
-animatedata <- data.frame(x=rnorm(n=100,mean=5,sd=2))
-animatedata <- animatedata %>% mutate(y=-.5*x+rnorm(n=100,mean=0,sd=.25))
-
-# Duplicate each row (for transition in animation)
-animatedata <- animatedata %>% bind_rows(animatedata)
-animatedata$transition <- 0
-animatedata[101:200,]$transition <- 1
-
-# Add (one big) outlier to the second set of data 
-animatedata[201,] <- c(20,-20,1) 
-
-# Scatter plot with outlier
-ggplot(animatedata,aes(x=x,y=y)) + geom_point() + theme_classic()
-
-# Scatter plot without outlier
-animatedata %>% filter(transition == 0) %>% ggplot(aes(x=x,y=y)) + geom_point() + theme_classic()
-
-# To make animated data, need to duplicate rows for all data points in both states (add/subtract only outlier)
-
-animfig <- ggplot(animatedata,aes(x=x,y=y)) + 
-  geom_point() + 
-  geom_smooth(data=animatedata,aes(x=x,y=y),method='lm') + 
-  # Here comes the gganimate code
-  transition_states(
-    transition,
-    transition_length = 1,
-    state_length = 1
-  ) +
-  enter_fade() + 
-  exit_shrink() +
-  ease_aes('linear') + 
-  theme_classic()
-animate(animfig)
-anim_save(filename=here("RegressionOutlier.gif"),animation=animfig)
-```
-
 ## Interaction Terms
 
 Our question will be: what is the effect of education on wages? We can estimate a simple regression controlling only for education and experience -- for now, assume that this is a fully specified model.
@@ -462,42 +271,16 @@ msummary(list(m1,m2,m3),
          stars=c('*' = .1, '**' = .05, '***' = .01)) 
 ```
 
-## Polynomial Models
 
-What if we think experience has a nonlinear effect on wages? Why might this be true?
+## Standard Errors 
 
-Let's model this nonlinearity by including a squared term in the regression
+### How to obtain standard errors
+Just like a lot of other things, standard errors are stored in the lm object! 
 
-```{r nonlinear}
-ggplot(data=mydata,aes(x=exper,y=lwage)) + geom_point() + 
-  theme_minimal() + labs(x="Experience (Years)",y="Wages") + 
-  geom_smooth(method='lm', formula= y~x)
-
-# What if we add in a squared term? 
-ggplot(data=mydata,aes(x=exper,y=lwage)) + geom_point() + 
-  theme_minimal() + labs(x="Experience (Years)",y="Wages") + 
-  stat_smooth(method="lm", se=TRUE, fill=NA,
-              formula=y ~ poly(x, 2, raw=TRUE),colour="red")
+```{r ses}
+myout <- summary(lm_complex)
+myout$coefficients[,2]
 ```
-
-How do our results change if we increase the order of the polynomial we fit? Why should/shouldn't we do this?
-
-```{r higher-order}
-# What about a cubic term? 
-ggplot(data=mydata,aes(x=exper,y=lwage)) + geom_point() + 
-  theme_minimal() + labs(x="Experience (Years)",y="Wages") + 
-  stat_smooth(method="lm", se=TRUE, fill=NA,
-              formula=y ~ poly(x, 3, raw=TRUE),colour="red")
-
-# Higher order terms? 
-n <- 10 # You pick a polynomial
-ggplot(data=mydata,aes(x=exper,y=lwage)) + geom_point() + 
-  theme_minimal() + labs(x="Experience (Years)",y="Wages") + 
-  stat_smooth(method="lm", se=TRUE, fill=NA,
-              formula=y ~ poly(x, n, raw=TRUE),colour="red")
-```
-
-## Standard Errors
 
 ### Heteroskedasticity
 
@@ -538,7 +321,7 @@ msummary(list("naive"=m1,"robust"=m1,"Clustered"=m1),
 
 For whatever reason, you may need to bootstrap your standard errors. This is a sample code for how you might do that.
 
-```{r bootstrap}
+```{r bootstrap, eval=FALSE}
 numiter <- 1000 # Number of times you want to sample
 sizesample=nrow(mydata) # Size of the sample you want to take
 
@@ -558,6 +341,49 @@ ggplot(allbetas,aes(x=allbetas)) + geom_histogram(fill='gray',color="black") + t
   labs(x="Estimated Betas",y="Count") + geom_vline(xintercept=0.077,color="red",size=2)
 
 sd(allbetas$allbetas) # This gives us a bootstrapped SE remarkably similar to the regression approach
+```
+
+## Making a Regression Table
+
+### Preliminaries 
+
+When making and saving outputs, you want your code (and outputs) to be **completely replicable**. You will absolutely have to make these figures and tables more times than you think you should reasonably have to! 
+
+So make sure you have: 
+1. An R project set up
+2. A command that points R to a directory **regardless of your machine** 
+    a. This is where the "here" package comes in handy
+3. Consistent project organization (folders) with dates for each replication of a figure
+
+```{r reg-tables}
+# Make sure your directory is working
+library(here)
+here() # Note: this will be the directory your project is stored in
+
+# Some sample data for our table construction
+res <- causaldata::restaurant_inspections
+
+res <- res %>%
+  # Create NumberofLocations
+  group_by(business_name) %>%
+  mutate(NumberofLocations = n())
+summary(res$NumberofLocations)
+
+## Let's run our regression models
+m1 <- lm(inspection_score ~ NumberofLocations, data = res)
+m2 <- lm(inspection_score ~ NumberofLocations + Year, data = res)
+
+# Give msummary a list() of the models we want in our table
+# and save to a file using the here() library
+# Note that you select the file type (html, pdf, etc.)
+# (see help(msummary) for other options)
+msummary(list("Simple"=m1,"Full"=m2),
+         stars=TRUE,
+         output= here('regression_table.html')) 
+# If you want a folder within your directory, you would say here("Output", "RegressionTable.html")
+
+# Default significance stars are +/*/**/*** .1/.05/.01/.001. Social science
+# standard */**/*** .1/.05/.01 can be restored with stars=c('*' = .1, '**' = .05, '***' = .01)
 ```
 
 ## Package Citations
