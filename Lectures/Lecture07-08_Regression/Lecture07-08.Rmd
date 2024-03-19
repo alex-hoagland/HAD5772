@@ -267,7 +267,7 @@ msummary(list(m1,m2),
 
 # What if we had left out the main effect?
 m3 <- lm(lwage ~ educ + exper + educ:black, data=mydata)
-msummary(list(m1,m2,m3),
+msummary(list(m2,m3),
          stars=c('*' = .1, '**' = .05, '***' = .01)) 
 ```
 
@@ -377,8 +377,8 @@ m2 <- lm(inspection_score ~ NumberofLocations + Year, data = res)
 # and save to a file using the here() library
 # Note that you select the file type (html, pdf, etc.)
 # (see help(msummary) for other options)
-msummary(list("Simple"=m1,"Full"=m2),
-         stars=TRUE,
+msummary(list("OLS, unclustered SEs"=m1,"Full"=m2),
+         stars=TRUE) # ,
          output= here('regression_table.html')) 
 # If you want a folder within your directory, you would say here("Output", "RegressionTable.html")
 
