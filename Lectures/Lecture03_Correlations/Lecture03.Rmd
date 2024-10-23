@@ -1,0 +1,214 @@
+---
+title: "Lecture 2 Code"
+author: "Alex Hoagland"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r header}
+# I like to include several additional notes in the header of my files here:
+#
+# Last modified: 10/4/2023
+#
+### PURPOSE:
+  # Lecture 2 code and output file
+#
+### NOTES:
+  # - uses the Tidyverse package and Dplyr
+  # - uses the NHANES package to load data from the US National Health and Nutrition Examination Survey (NHANES, 1999-2004).
+```
+
+## Starting with R: Some things to be aware of
+
+-   Where is RStudio "pointed at" -- what's the current directory?
+    -   We'll talk more about project organization as we proceed through the course
+-   Using *projects* in R -- keeping files altogether
+-   RStudio is meant to be an "all-in-one" tool; you can use this to code (duh), but also to make and format output including figures, tables, documents (like this one), slides, and even apps!
+-   This makes it a convenient one-stop-shop for everything you do in a research project!
+
+## R Markdown: Introduction
+
+R Markdown documents are the files used to create HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+You can embed code (and its output) into these files. When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document.
+
+You can embed an R code chunk like this:
+
+```{r name-of-chunk}
+# Any commands you want to have happen go here
+# summary(mydata) # note: what does R look like? What's a comment?
+```
+
+Let's test this in copilot. Can I create a chunk that calculates the mean of a variable? What about windsorizing the mean?
+
+## Packages in R
+
+R is a collaborative open-source language, which means people write and share packages that do all sorts of helpful things. We'll make use of some of the most common packages for econometric reserach throughout this course.
+
+```{r load-packages,warning=FALSE}
+# The packages we will need for this file
+# install.packages('tidyverse') # if you need to install the package, uncomment this line.
+# install.packages('NHANES')
+
+library(tidyverse) # load the installed package for each new session of R
+library(NHANES) # where we'll get our data extract
+?NHANES # documentation for a package or function looks like this! This one gives us a list of all variables we could want
+```
+
+## Loading Data
+
+Let's load some data from the NHANES and save it as our own object.
+
+```{r load-my-data}
+mydata <- NHANES # gives us a random smaple of 10,000 observations
+  # note from documentation: simple random sample of the American population
+View(mydata) # Let's look at the structure
+```
+
+## Summarizing and Visualizing Data
+
+For most of our data visualization needs, we will use ggplot. Note that data visualization is extremely important! Captivating visualizations make a great paper stand out, and bad ones can sink even the best paper.GGplot is extremely versatile! I recommend this book if you are looking to master ggplot: <https://tinyurl.com/4k4wj8px>
+
+Let's start with two continuous variables: age and BMI.
+
+```{r summarizing-data}
+# Let's calculate the mean, median, and main quantiles
+summary(mydata$Age) # What do we see?
+summary(mydata$BMI) # Note the NAs, what does this mean?
+
+# Why are these useful? An example
+summary(mydata$DaysMentHlthBad) # Another example (this is discrete -- what do we get from the difference between the mean and the median?)
+
+# Suppose you want to calculate a specific quantile
+quantile(mydata$Age) # standard
+quantile(mydata$Age, probs=c(0, .01, .04, .33, .75, 1)) # fancy
+quantile(mydata$Age, probs=seq(0, 1, by=.1)) # uniform
+```
+
+Now let's start visualizing the data.
+
+```{r visualize-continuous-vars}
+# first, a histogram of our two variables
+ggplot(data=mydata, aes(x=Age)) + geom_histogram() # the simplest version. How can we clean it up? Let's do this live.
+
+# A final version
+# includes: bin width, color, labels, theme
+ggplot(data=mydata, aes(x=Age)) + geom_histogram(binwidth = 5, color="gray", fill="blue", alpha=.6) + labs(y = "") + theme_minimal()
+
+# A note on bin widths: what do you notice about these? What is similar/different?
+ggplot(data=mydata, aes(x=Age)) + geom_histogram(binwidth = 2, color="gray", fill="blue", alpha=.6) + labs(y = "") + theme_minimal()
+ggplot(data=mydata, aes(x=Age)) + geom_histogram(binwidth = 5, color="gray", fill="blue", alpha=.6) + labs(y = "") + theme_minimal()
+
+# Now let's look at BMI
+ggplot(data=mydata, aes(x=BMI)) + geom_histogram(binwidth = 3, color="gray", fill="red", alpha=.6) + labs(y = "") + theme_minimal()
+
+# with enough data, can we ignore bin widths altogether?
+ggplot(data=mydata, aes(x=BMI)) + geom_density(color="black", fill="red", alpha=.6) + labs(y = "") + theme_minimal()
+```
+
+### Stratifying data
+
+Now let's look at these across groups. We'll start with BMI across age bins.
+
+```{r stratifying}
+# This gives us an introduction to pipe notation!
+mydata %>% group_by(AgeDecade) %>% drop_na(AgeDecade) %>%
+  summarize(BMI = mean(BMI, na.rm=T)) %>%
+  ggplot(aes(x=BMI,y=AgeDecade)) + geom_bar(position="dodge",
+                                            stat="identity",
+                                            fill="orange", alpha=.4) +
+                                  theme_minimal()
+
+# What about honest visualization?
+mydata %>% group_by(AgeDecade) %>% filter(Age >= 20) %>%
+  drop_na(AgeDecade) %>%
+  summarize(BMI = mean(BMI, na.rm=T)) %>%
+  ggplot(aes(x=BMI-27,y=AgeDecade)) + geom_bar(position="dodge",
+                                            stat="identity",
+                                            fill="orange", alpha=.4) +
+                                  theme_minimal()
+  # What does this plot suggest? Is it fair?
+  # Note: data hack thanks to Stack Overflow! https://stackoverflow.com/questions/35324892/ggplot2-setting-geom-bar-baseline-to-1-instead-of-zero
+```
+
+## Covariance and Correlation
+
+We can also define our own functions. This will become more important as the things we want to do in a single code file become more and more complex. Additionally, many econometricians like to code up their own estimators to really feel confident that they understand what is happening "under the hood" (we won't do much of this here.)
+
+Starting with a scatterplot:
+
+```{r scatter}
+#How useful is this?
+# ggplot(mydata, aes(x=Age,y=BMI))+geom_point(color = 'green', alpha = .8, size = 2)+theme_minimal()
+#
+# #Bubble chart
+# ggplot(mydata, aes(x=Age,y=BMI,size=PhysActive,color=PhysActive))+geom_point(alpha = .8)+theme_minimal()
+
+#Binscatter (in a function)
+binscatter <- function(nbins) { #note default choice
+  # this will create 25 quantiles using x and assign the observations in each quantile to a separate bin
+  mydata <-  mydata %>% mutate(bin = ntile(Age, n=nbins))
+  mydata %>% group_by(bin) %>%
+    summarise(xmean = mean(Age,na.rm=T), ymean = mean(BMI,na.rm=T)) %>%
+      #find the x and y mean of each bin
+    ggplot(aes(x=xmean, y=ymean)) +
+          geom_point() + theme_minimal() +
+          labs(x = 'Age', y = 'BMI')
+}
+
+binscatter(1) # what happens if I play around? Can you add other arguments?
+
+```
+
+### Covariance and Correlation
+
+```{r covariance-correlation}
+cov(mydata$BMI, mydata$Age,use="pairwise.complete.obs") # Base covariance -- but 65 what?
+cov(mydata$BMI*100, mydata$Age,use="pairwise.complete.obs")
+
+cor(mydata$BMI, mydata$Age,use="pairwise.complete.obs") # This makes more sense!
+
+# What about relationships between multiple variables? Wait for regression, DAGs, etc.!
+```
+
+## Variance and Errors
+
+Now let's look at quantifying uncertainty
+
+```{r standard-deviation}
+# This adds SDs to our histogram of BMI to show that we capture most of our data within a standard deviation
+mymean <- mean(mydata$BMI, na.rm = T)
+mysd <- sd(mydata$BMI, na.rm = T) # What does this mean?
+
+mydata <- mydata %>% drop_na(BMI) %>%
+  mutate(myfill = ifelse(abs(BMI-mymean)<=mysd, 1, 0))
+mydata$myfill <- factor(mydata$myfill)
+ggplot(mydata, aes(x=BMI, fill = myfill)) +
+  geom_histogram(width = 1, color='gray') +
+  labs(y = "", fill = "Within 1 SD") + theme_minimal()
+```
+
+## What do we do at the end of an RMarkdown file?
+
+First, make sure to cite all the packages you used -- it's just as important to give credit to coding work as it is to other types of previous scholarly work.
+
+### Package Citations
+
+```{r, include=FALSE}
+print("=============================Works Cited=============================")
+loadedNamespaces() %>%
+map(citation) %>%
+print(style = "text") # Adds citations for each package to end of .rmd file
+
+knitr::write_bib(file = 'packages.bib') # Constructs a citation file for all packages used in this lecture.
+
+# DON'T FORGET TO CITE YOUR PACKAGES IN YOUR PAPERS/ASSIGNMENTS.
+```
+
+Let's knit this file and save it!
