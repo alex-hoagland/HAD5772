@@ -1,0 +1,97 @@
+/* updated 230728-1000am  */
+
+/* global misc */
+.fieldHolder.blueConicButton {margin-top: 1em;}
+.uniForm .fieldHolder {padding:0.5em 0.5em 0 0.5em;}
+.fancybox-close {right:-45px;}
+
+/* close buttons original styling */ 
+.bcToaster.bcShowClose.bcDefaultClose .bcClose {background-size: 72px 36px;}
+.bcToaster.bcShowClose.bcDefaultClose .bcClose:hover {background-position: -36px 0;}
+.bcToaster.bcShowClose .bcClose {width: 36px;height: 36px;}
+/*.bcToaster .bcClose {top: 1px;right: 1px;}*/
+.bcToaster .bcClose {top: -14px;right: -14px;}
+
+/* close buttons overdoing it */ 
+.bcToaster.bcShowClose.bcDefaultClose .bcCloseWrapper .bcClose {background-size: 72px 36px;}
+.bcToaster.bcShowClose.bcDefaultClose .bcCloseWrapper .bcClose:hover {background-position: -36px 0;}
+.bcToaster.bcShowClose .bcCloseWrapper .bcClose {width: 36px;height: 36px;}
+/*.bcToaster .bcClose {top: 1px;right: 1px;}*/
+.bcToaster  .bcCloseWrapper .bcClose {top: -14px;right: -14px;}
+
+/* confirmation message */
+.bcAfterSubmitText {max-width: 95%;}
+
+/* lightbox */
+.fancybox-inner {background:#edede3;font-weight:500;padding: 1rem;}
+.fancybox-inner a.bctoasterButton {margin-left: 0;}
+.fancybox-inner p {line-height:1.35;margin-bottom: .75em;}
+.fancybox-inner p a {color:#8b0018;}
+.fancybox-inner p a:hover {color:#d71534;text-decoration: underline;}
+.fancybox-wrap.fancybox-desktop.fancybox-type-html.fancybox-opened {max-width: 500px;}
+.fancybox-skin {max-width: 500px;}
+.fancybox-outer {max-width: 500px;}
+.fancybox-inner {display:flex;flex-direction:column;justify-content: center;max-width: 500px;}
+
+/* first toast */
+.bcToasterContent {background-color: #edede3;border: solid 1px #dadbdb;box-shadow: 0 3px 6px 0 rgba(0,0,0,.35);color:#1a1a1a;display: flex;flex-direction:column;font-weight: 500;max-width:400px;padding: 1rem;}
+a.bctoasterLink {color:#8b0018;}
+.bcToasterContent  p {margin-bottom:0;}
+.bcToasterCloseButton {background-color: white;border: solid 1px #999;box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.5);color: black;}
+a.bctoasterButton  {align-self: center;background-color: #1f1f1f;border: none;border-radius: 4px;color: #fff;cursor: pointer;flex: unset;font-size: 1rem;font-weight:700;line-height: 20px;margin: 1em 0 0 0;padding: 5px 12px;}
+a.bctoasterButton:hover  {background-color:  #fff;color:#333;text-decoration: none;}
+
+/* conference toast */
+.bcToasterContent.bcTemplateContent a {color: #8b0018;}
+.bcToasterContent.bcTemplateContent a:hover {color:#d71534;text-decoration:underline;}
+.bcToasterContent.bcTemplateContent p a {color: #8b0018;}
+.bcToasterContent.bcTemplateContent p a:hover {color:#d71534;text-decoration:underline;}
+.bcToasterContent.bcTemplateContent {max-width: 400px;flex-direction: column;line-height:1.25;}
+.bcToasterContent.bcTemplateContent a.bctoasterButton {align-self:flex-end;color: #fff;}
+.bcToasterContent.bcTemplateContent a.bctoasterButton:hover {color: #333;text-decoration:none;}
+
+/* input toast */
+input.bcMedium.textInput {height:40px;width: 100%;}
+.uniForm .textInput.bcLarge {height:40px;width:100%;}
+.uniForm .textInput {padding:4px;}
+.uniForm .buttonHolder {background: unset;margin:0;padding:0;text-align: center;}
+.fieldHolder.blueConicPlainText {text-align: center;}
+.fieldHolder.blueConicPlainText .plaintext a {color:#000;font-size:11px;text-decoration: none;}
+.fieldHolder.blueConicPlainText .plaintext a:hover {text-decoration: none;}
+.bcForm .uniForm .buttonHolder .primaryAction {background: #1f1f1f;border:none;font-weight:700;line-height:20px;padding:5px 12px;}
+.bcForm .uniForm .buttonHolder .primaryAction:hover {background: #fff;color: #1f1f1f;}
+
+/* recommended lists original styling */
+.bcOneLineTemplate .bcRecommendedItem a {color: #000;display: inline-block;font-weight: 400;overflow: unset;text-overflow: unset;white-space: unset;}
+.bcOneLineTemplate li {padding:1.0em 0.5em 0 0;}
+li.bcRecommendedItem {padding:0;margin-bottom:1.25em;line-height: 1.5;}
+span.bc-reco-head {display: block;font-size: 20px;font-weight: 700;margin-bottom:1em;}
+
+/* recommended lists overdoing it */
+.bccomplexobject ul.bcRecommendations.bcOneLineTemplate.bcTemplate4 .bcRecommendedItem a {color: #000;display: inline-block;font-weight: 400;overflow: unset;text-overflow: unset;white-space: unset;}
+.bccomplexobject ul.bcRecommendations.bcOneLineTemplate.bcTemplate4  li {padding:1.0em 0.5em 0 0;}
+.bccomplexobject ul.bcRecommendations.bcOneLineTemplate.bcTemplate4  li.bcRecommendedItem {padding:0;margin-bottom:1.25em;line-height: 1.5;}
+
+/* trending substitution fixes */
+.widget-PersonalizedContent.widget-instance-AMA_PersonalizedContent_MagazineView_RightRail {background: #f4f4f4;padding: 15px;}
+.widget-WidgetLoader.widget-instance-AMA_PersonalizedContent_MagazineView_RightRail {background: #f4f4f4;padding: 15px;}
+[data-thm=jama] h4 {color:#d71635;}
+[data-thm=jaman] h4 {color:#ed0973;}
+[data-thm=cardi] h4 {color:#be1e32;}
+[data-thm=derm] h4 {color:#006f3b;}
+[data-thm=jama-] h4 {color:#fb5252;}
+[data-thm=intem] h4 {color:#005276;}
+[data-thm=neur] h4 {color:#d71635;}
+[data-thm=oncol] h4 {color:#3b923f;}
+[data-thm=ophth] h4 {color:#006f3b;}
+[data-thm=otol] h4 {color:#005276;}
+[data-thm=peds] h4 {color:#005276;}
+[data-thm=psych] h4 {color:#0084c0;}
+[data-thm=surg] h4 {color:#f47920;}
+
+/* homepage substitution */
+.widget-MostViewedCited.widget-instance-AMAv2_MostViewedCited_Journal {background: #f4f4f4;border:1px solid #ddd;padding: 15px;}
+
+/* dropdown menu */
+.uniForm .textInput, .uniForm .fileUpload, .uniForm .selectInput, .uniForm select, .uniForm textarea {width: 100%;}
+
