@@ -1,0 +1,187 @@
+---
+title: "Lecture 2 Code"
+author: "Alex Hoagland"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+If you want to customize your .rmd file's look, you can add some options here. You can also load some packages here.
+
+```{r setup, include=FALSE}
+# Can add a header to your document if you want (this is a comment)
+
+knitr::opts_chunk$set(echo = TRUE)
+
+# Packages we'll need
+# install.packages("chattr")
+library(chattr)
+library(tidyverse)
+library(readxl)
+# ?chattr
+
+# Use your Chat-GPT Open AI API key here: https://platform.openai.com/api-keys
+# Sys.setenv(OPENAI_API_KEY = "YOUR KEY HERE") 
+# chattr_app()
+```
+
+## Variables
+
+First, we can define some useful variables:
+
+```{r variables}
+
+# Basic variables
+a <- 1
+b <- 2
+
+# Let's try out copilot! (This didn't help me)
+# For each letter a, b, c, and d, assign a random number between 1 and 100
+
+# Let's try out chattr! (This did help me)
+# Load necessary libraries
+
+
+# Create a data frame with a column 'letter' containing letters a to z
+letters_df <- data.frame(letter = letters)
+
+# Assign a random number between 1 and 1000 to each letter
+set.seed(123) # for reproducibility
+letters_df <- letters_df %>%
+  mutate(random_number = sample(1:1000, n(), replace = TRUE))
+
+letters_df
+```
+
+Notice that when you knit your file, this will "spit out" the table above. This is like circling your answer in math homework – you want to publish your work outside of the code so that we can see your final answer.
+
+What about other variable types?
+
+```{r variable types}
+mychar <- "test"
+mybool <- TRUE
+# we'll cover factors more later. 
+
+as.numeric(mybool)
+as.numeric(mychar) # what does this mean? 
+as.numeric(mychar == "test")
+
+```
+
+## Calculations in R 
+
+Let's try some simple calculations – shout them out. Something to think about -- do we want to save them as objects or export them as output? 
+
+```{r calculations}
+a + b
+```
+
+## Now vectors
+
+```{r vectors}
+# Manual assignment
+myvec <- c(1,3,45,6,0)
+myvec2 <- 1:5
+myvec + myvec2
+
+# Evenly spaced vectors
+myvec3 <- seq(from=10,to=1000,length=5)
+myvec+myvec2+myvec3
+
+# Random numbers
+myvec4 <- runif(5, min=0, max=100)
+myvec+myvec2+myvec3+myvec4
+```
+Do we like the way this output looks? What if you run the whole chunk at once? How can we do better?
+
+Now let's summarize a vector here: 
+
+```{r summary} 
+outvec <- myvec + 3*myvec3
+
+# What do each of these tell us? 
+mean(outvec)
+min(outvec)
+median(outvec)
+sd(outvec)
+range(outvec)
+length(outvec)
+```
+
+## What have we got so far? 
+
+``` {r str}
+str(a)
+str(myvec3)
+str(letters_df)
+```
+
+## Matrices
+We can go from vectors to matrices easily. 
+
+```{r matrices}
+# Manual matrix
+mymat <- matrix(c(1:15), nrow=5, ncol=3)
+mymat 
+
+# Combine myvec, myvec2, and myvec3 into a matrix (copilot)
+mymat2 <- cbind(myvec, myvec2, myvec3)
+mymat + mymat2
+
+mymat * mymat2 # what is this doing? 
+# mymat %*% mymat2 # Why doesn't this work? 
+t(mymat) %*% mymat2 # What does this do? 
+
+# Most of the time, we just want the data
+mydata <- as.data.frame(mymat2)
+# VieW(mydata)
+```
+
+## Now let's practice working with data
+
+Let's load the dataset "Uninsured.xlsx" from our GitHub repo, which you will use for one of the upcoming assignments. 
+
+```{r loaddata}
+# Load the data
+uninsured <- read_excel("C:\\Users\\alexh\\Dropbox\\Teaching\\HAD5772_Stats\\HAD5772_2025W\\HAD5772\\Datasets\\Uninsured.xlsx") 
+# View(uninsured)
+
+# Summmarize the data
+names(uninsured)
+mean(uninsured)
+summary(uninsured)
+uninsured %>% head()
+str(uninsured)
+
+# What is the average bankruptcy rate in areas with large populations? 
+summary(uninsured$Population)
+uninsured %>% filter(Population >= 80351) %>% summarize(avgbank = mean(frac_bankrupt))
+uninsured %>% filter(Population < 80351) %>% summarize(avgbank = mean(frac_bankrupt)) # Do these seem different? We will learn how to test! 
+```
+
+## Visualizing data
+Finally, let's visualize some data. 
+
+```{r visualize}
+# Let's make a histogram of the bankruptcy rate using ggplot (copilot)
+ggplot(uninsured, aes(x=frac_bankrupt)) + geom_histogram(binwidth = 0.001, fill="blue", color="black") + labs(title="Bankruptcy Rate in US Counties", x="Fraction of Bankruptcies", y="Count")
+
+# How can you customize this? 
+```
+
+Now this is where we will practice knitting our file! (The binscatter code segment below is for the second half of the lecture)
+
+```{r binscatter}
+# What does a raw scatterplot look like 
+ggplot(uninsured, aes(x=Population, y=frac_bankrupt)) + geom_point()
+
+# Create a binned scatterplot between bankruptcy rate and population using ggplot
+uninsured %>%
+  mutate(bin = ntile(Population, 5)) %>%
+  group_by(bin) %>% summarize(xmean = mean(Population), ymean = mean(frac_bankrupt)) %>% 
+  ggplot(aes(x = xmean, y = ymean)) +
+  geom_point() +
+  labs(title = "Bankruptcy Rate in US Counties by Population", x = "Population", y = "Fraction of Bankruptcies")
+```
+
+What stories do you see here? Are they robust (to what)?
+
