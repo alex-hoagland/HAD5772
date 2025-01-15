@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Packages we'll need
 # install.packages("chattr")
-library(chattr)
+# library(chattr)
 library(tidyverse)
 library(readxl)
 # ?chattr
@@ -185,3 +185,32 @@ uninsured %>%
 
 What stories do you see here? Are they robust (to what)?
 
+## Simple tables and figures
+Remember that tables are generally easier to work with outside of knitting, but you might want some simple code to generate the numbers
+
+```{r tables-figures}
+# Suppose we randomly assign each observation to one of three states: NY, MI, or OH
+set.seed(0813)
+uninsured <- uninsured %>%
+  mutate(state = sample(c("NY", "MI", "OH"), n(), replace = TRUE))
+uninsured$state <- as.factor(uninsured$state)
+levels(uninsured$state)
+
+# simple table
+table(uninsured$state)
+
+# simple histogram
+barplot(prop.table(table(uninsured$state)))
+```
+
+## Measures of central tendency
+```{r mct}
+uninsured <- uninsured %>% mutate(frac_bankrupt= frac_bankrupt*100)
+mean(uninsured$frac_bankrupt)
+median(uninsured$frac_bankrupt)
+quantile(uninsured$frac_bankrupt, probs = c(0.25, 0.5, 0.75))
+
+mean(uninsured$Population)
+median(uninsured$Population)
+quantile(uninsured$Population, probs = c(0.25, 0.5, 0.75))
+```
