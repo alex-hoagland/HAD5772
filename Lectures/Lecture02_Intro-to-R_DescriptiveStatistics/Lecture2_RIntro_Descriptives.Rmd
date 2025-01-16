@@ -31,7 +31,7 @@ First, we can define some useful variables:
 ```{r variables}
 
 # Basic variables
-a <- 1
+a <- 10000 
 b <- 2
 
 # Let's try out copilot! (This didn't help me)
@@ -63,16 +63,21 @@ mybool <- TRUE
 
 as.numeric(mybool)
 as.numeric(mychar) # what does this mean? 
-as.numeric(mychar == "test")
+as.numeric(mychar == "test2")
 
 ```
 
-## Calculations in R 
+## Calculations in R
 
-Let's try some simple calculations – shout them out. Something to think about -- do we want to save them as objects or export them as output? 
+Let's try some simple calculations – shout them out. Something to think about -- do we want to save them as objects or export them as output?
 
 ```{r calculations}
 a + b
+
+a*a+b*3
+
+# take the natural logarithm of a and raise that to the power of b
+log(a)^b
 ```
 
 ## Now vectors
@@ -80,7 +85,7 @@ a + b
 ```{r vectors}
 # Manual assignment
 myvec <- c(1,3,45,6,0)
-myvec2 <- 1:5
+myvec2 <- 1:5 # c(1,2,3,4,5)
 myvec + myvec2
 
 # Evenly spaced vectors
@@ -91,15 +96,20 @@ myvec+myvec2+myvec3
 myvec4 <- runif(5, min=0, max=100)
 myvec+myvec2+myvec3+myvec4
 ```
+
 Do we like the way this output looks? What if you run the whole chunk at once? How can we do better?
 
-Now let's summarize a vector here: 
+Now let's summarize a vector here:
 
-```{r summary} 
+```{r summary}
 outvec <- myvec + 3*myvec3
 
 # What do each of these tell us? 
+
+# Average
 mean(outvec)
+
+# Min: 
 min(outvec)
 median(outvec)
 sd(outvec)
@@ -107,16 +117,17 @@ range(outvec)
 length(outvec)
 ```
 
-## What have we got so far? 
+## What have we got so far?
 
-``` {r str}
+```{r str}
 str(a)
 str(myvec3)
 str(letters_df)
 ```
 
 ## Matrices
-We can go from vectors to matrices easily. 
+
+We can go from vectors to matrices easily.
 
 ```{r matrices}
 # Manual matrix
@@ -125,6 +136,7 @@ mymat
 
 # Combine myvec, myvec2, and myvec3 into a matrix (copilot)
 mymat2 <- cbind(myvec, myvec2, myvec3)
+mymat2_rw <- rbind(myvec, myvec2, myvec3)
 mymat + mymat2
 
 mymat * mymat2 # what is this doing? 
@@ -138,14 +150,13 @@ mydata <- as.data.frame(mymat2)
 
 ## Now let's practice working with data
 
-Let's load the dataset "Uninsured.xlsx" from our GitHub repo, which you will use for one of the upcoming assignments. 
+Let's load the dataset "Uninsured.xlsx" from our GitHub repo, which you will use for one of the upcoming assignments.
 
 ```{r loaddata}
 # Load the data
-uninsured <- read_excel("C:\\Users\\alexh\\Dropbox\\Teaching\\HAD5772_Stats\\HAD5772_2025W\\HAD5772\\Datasets\\Uninsured.xlsx") 
-# View(uninsured)
+uninsured <- read_excel("C:\\Users\\alexh\\Dropbox\\Teaching\\HAD5772_Stats\\HAD5772_2025W\\HAD5772\\Datasets\\Uninsured.xlsx")
 
-# Summmarize the data
+# Summarize the data
 names(uninsured)
 mean(uninsured)
 summary(uninsured)
@@ -154,19 +165,31 @@ str(uninsured)
 
 # What is the average bankruptcy rate in areas with large populations? 
 summary(uninsured$Population)
-uninsured %>% filter(Population >= 80351) %>% summarize(avgbank = mean(frac_bankrupt))
+uninsured %>% 
+  filter(Population >= 80351) %>% 
+  summarize(avgbank = mean(frac_bankrupt))
 uninsured %>% filter(Population < 80351) %>% summarize(avgbank = mean(frac_bankrupt)) # Do these seem different? We will learn how to test! 
 ```
 
 ## Visualizing data
-Finally, let's visualize some data. 
+
+Finally, let's visualize some data.
 
 ```{r visualize}
 # Let's make a histogram of the bankruptcy rate using ggplot (copilot)
-ggplot(uninsured, aes(x=frac_bankrupt)) + geom_histogram(binwidth = 0.001, fill="blue", color="black") + labs(title="Bankruptcy Rate in US Counties", x="Fraction of Bankruptcies", y="Count")
+ggplot(uninsured, aes(x=frac_bankrupt)) + 
+  geom_histogram(binwidth = 0.001, fill="blue", color="black") +
+  labs(title="Bankruptcy Rate in US Counties", 
+       x="Fraction of Bankruptcies", y="Count")
 
 # How can you customize this? 
+
+# make a scatterplot between x and y in ggplot
+ggplot(uninsured, aes(x=Population, y=frac_bankrupt)) + geom_point()
 ```
+
+This scatterplot shows me that really large neighborhoods have lots of uninsured people. 
+
 
 Now this is where we will practice knitting our file! (The binscatter code segment below is for the second half of the lecture)
 
@@ -186,6 +209,7 @@ uninsured %>%
 What stories do you see here? Are they robust (to what)?
 
 ## Simple tables and figures
+
 Remember that tables are generally easier to work with outside of knitting, but you might want some simple code to generate the numbers
 
 ```{r tables-figures}
@@ -204,6 +228,7 @@ barplot(prop.table(table(uninsured$state)))
 ```
 
 ## Measures of central tendency
+
 ```{r mct}
 uninsured <- uninsured %>% mutate(frac_bankrupt= frac_bankrupt*100)
 mean(uninsured$frac_bankrupt)
