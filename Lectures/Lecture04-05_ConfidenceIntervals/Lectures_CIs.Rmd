@@ -20,7 +20,22 @@ knitr::opts_chunk$set(echo = TRUE)
 ### NOTES:
   # - uses the Tidyverse package and Dplyr
 library(tidyverse)
+library(NHANES)
 ```
+
+### Covariance and Correlation
+
+```{r covariance-correlation}
+mydata <- NHANES
+cov(mydata$DaysMentHlthBad, mydata$Age,use="pairwise.complete.obs") # Base covariance -- but in units of what?
+cov(mydata$DaysMentHlthBad/7, mydata$Age,use="pairwise.complete.obs")
+
+cor(mydata$DaysMentHlthBad, mydata$Age,use="pairwise.complete.obs") # This makes more sense!
+cor(mydata$DaysMentHlthBad/7, mydata$Age,use="pairwise.complete.obs") # This makes more sense!
+
+# What makes this number useful for you? What would you think about changing to make this number more useful, given our results above? 
+```
+
 
 ## Calculating values from the normal distribution
 Note: this is all very similar across the "main" distributions that R knows. We just use the normal distribution here as an example (*todo*: add an example here using copilot that samples from the Bernoulli and creates some data)

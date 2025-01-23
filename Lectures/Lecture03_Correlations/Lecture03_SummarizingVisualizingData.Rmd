@@ -54,7 +54,8 @@ tabledata <- mydata %>% group_by(Education) %>%
   summarize(mean_days_mental_health = mean(DaysMentHlthBad, na.rm=T),
             median_days_mental_health = median(DaysMentHlthBad, na.rm=T),
             n = n()) # Note that this came from copilot! 
-kableExtra::kable(tabledata) # Now you can format this in Word! This is what I recommend for the next assignment. 
+# kableExtra::kable(tabledata) # Now you can format this in Word! This is what I recommend for the next assignment. 
+tabledata
 
 # simple histogram
 barplot(prop.table(table(mydata$Education))) # What does this tell us? 
@@ -70,7 +71,7 @@ ggplot(data=mydata, aes(x=Age)) + geom_histogram() # the simplest version. How c
 
 # A final version
 # includes: bin width, color, labels, theme
-ggplot(data=mydata, aes(x=Age)) + geom_histogram(binwidth = 5, color="gray", fill="blue", alpha=.6) + labs(y = "") + theme_minimal()
+ggplot(data=mydata, aes(x=Age)) + geom_histogram(binwidth = 5, color="gray", fill="blue", alpha=.6) + labs(y = "# of") + theme_minimal()
 
 # A note on bin widths: what do you notice about these? What is similar/different?
 ggplot(data=mydata, aes(x=Age)) + geom_histogram(binwidth = 2, color="gray", fill="blue", alpha=.6) + labs(y = "") + theme_minimal()
@@ -127,7 +128,6 @@ ggplot(mydata, aes(x=DaysMentHlthBad, fill = myfill)) +
   geom_histogram(width = 1, color='gray') +
   labs(y = "", fill = "Within 1 SD") + theme_minimal()
 ```
-```
 
 ## Summarizing and Visualizing Data
 
@@ -150,16 +150,4 @@ mydata %>%
   geom_point() + theme_minimal() + 
   geom_vline(xintercept = 18) + geom_vline(xintercept = 55) + 
   labs(x = "Respondent Age", y = "Average Days with Poor Mental Health")
-```
-
-### Covariance and Correlation
-
-```{r covariance-correlation}
-cov(mydata$DaysMentHlthBad, mydata$Age,use="pairwise.complete.obs") # Base covariance -- but in units of what?
-cov(mydata$DaysMentHlthBad/7, mydata$Age,use="pairwise.complete.obs")
-
-cor(mydata$DaysMentHlthBad, mydata$Age,use="pairwise.complete.obs") # This makes more sense!
-cor(mydata$DaysMentHlthBad/7, mydata$Age,use="pairwise.complete.obs") # This makes more sense!
-
-# What makes this number useful for you? What would you think about changing to make this number more useful, given our results above? 
 ```
