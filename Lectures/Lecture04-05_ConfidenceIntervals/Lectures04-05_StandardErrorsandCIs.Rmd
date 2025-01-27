@@ -1,0 +1,309 @@
+---
+title: "Lecture 3 Code"
+author: "Alex Hoagland"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r header}
+# I like to include several additional notes in the header of my files here:
+#
+# Last modified: 2024-01-23
+#
+### PURPOSE:
+  # Lecture 3 code and output file
+#
+### NOTES:
+  # - uses the Tidyverse package and Dplyr
+library(tidyverse)
+library(NHANES)
+```
+
+### Covariance and Correlation
+
+```{r covariance-correlation}
+mydata <- NHANES
+cov(mydata$DaysMentHlthBad, mydata$Age,use="pairwise.complete.obs") # Base covariance -- but in units of what?
+cov(mydata$DaysMentHlthBad/7, mydata$Age,use="pairwise.complete.obs")
+
+cor(mydata$DaysMentHlthBad, mydata$Age,use="pairwise.complete.obs") # This makes more sense!
+cor(mydata$DaysMentHlthBad/7, mydata$Age,use="pairwise.complete.obs") # This makes more sense!
+
+# What makes this number useful for you? What would you think about changing to make this number more useful, given our results above? 
+```
+
+# Random data
+
+When working with a sample of data, we want to understand something about the *randomness* of that data. Hence, we talk about sampling distributions.
+
+## Example: Sampling from a Bernoulli distribution
+
+Just as a simple example, suppose that we have data with two possible outcomes: poor mental health day or not. How can we express this distribution simply?
+
+```{r simple-bernoulli}
+
+# First, sample some data 
+sampledata <- rbinom(n=1000,size=1,prob=0.1)
+hist(sampledata) # What does this tell us? What should I change above to change the shape of the graph? 
+
+# Second, how can we go from the data we have to an indicator of the probability of poor mental health p?
+hist(mydata$DaysMentHlthBad)
+mydata %>% mutate(anybad = ifelse(DaysMentHlthBad > 0 & !is.na(DaysMentHlthBad), 
+                                  1, 0)) %>% 
+  ggplot(aes(x=anybad)) + 
+  geom_histogram(aes(y = (..count..)/sum(..count..))) # Does this look like what we had above?
+
+```
+
+So if we had to use this data, what would our estimate of $p = Pr(Poor Mental Health Days > 0)$ be?
+
+## Now what about Binomial? 
+We simplified our data a bit above. But what if we wanted to know about the number of poor mental health days in a month (intensive margin) rather than just the probability of poor mental health at all (extensive margin)?
+
+```{r binomial}
+# Let's calculate the empirical average successes/fails per person
+avgsuccess <- mean(mydata$DaysMentHlthBad, na.rm=T)
+avgfails <- mean(30-mydata$DaysMentHlthBad, na.rm=T)
+p <- avgsuccess/30 # This is the average # of poor mental health days in a month
+
+hist(mydata$DaysMentHlthBad) # Can we match this to a binomial distribution?
+sampledata <- rbinom(n=100000,size=30,prob=p)
+hist(sampledata) # What does this tell us? Does our data follow a binomial distribution? 
+```
+
+How could we test this empirically? Let's sample the predicted probabilities on just the extensive margin and see how they converge over multiple random samples: 
+
+```{r bernoulli-sample}
+# Let's sample, with replacement, from our dataset. 
+# Each time we sample, we will compute p = the average Pr(Any Poor Mental Health)
+# Then we will do this 100,000 times
+# And look at the distribution of estimated p's. 
+
+mydata <- mydata %>% mutate(anybad = ifelse(DaysMentHlthBad > 0 & !is.na(DaysMentHlthBad), 
+                                  1, 0))
+allsamples <- rep(NA, 1e5) # empty frame to store results
+for (i in 1:100000) {
+  test <- sample(mydata$anybad, replace=TRUE, size=1000) # 10% random sample
+  allsamples[i] <- mean(test)
+  rm(test)
+}
+hist(allsamples) # What distribution do we have here? Why? 
+
+# This gives us two things: the estimated average value and the *uncertainty* around that value
+mean(allsamples)
+sd(allsamples)
+```
+
+## Calculating values from the normal distribution
+
+Note: this is all very similar across the "main" distributions that R knows. We just use the normal distribution here as an example, but you can use Uniform, Bernoulli, Binomial, Exponential, Gamma, or any other distribution in basically the same way!
+
+```{r normal-dist}
+# If you want to sample from a normal distribution:
+sample_normal <- rnorm(n=1000,mean=5,sd=10)
+hist(sample_normal) # think: how would you standardize this? Can we add code here to do that?
+
+# Standardize sample_normal
+sample_normal2 <- (sample_normal - mean(sample_normal))/sd(sample_normal)
+sample_normal3 <- (sample_normal-5)/10
+
+# First, pdf
+pnorm(q=0,mean=0,sd=1)
+pnorm(q=10,mean=5,sd=10) # what is the probability that a normal draw is less than 10?
+
+# Second, cdf
+dnorm(x=10,mean=5,sd=10) # this gives the density
+
+# Third, quantiles
+
+# Identify the 5th and 95th percentiles of a normal distribution with mean 5 and sd 10
+qnorm(p=c(0.05,0.95),mean=5,sd=10)
+qnorm(p=c(.1,.2,.3,.4,.5,.6,.7,.8,.9,1),mean=5,sd=10) # quantiles of the distribution
+
+# Fourth, critical values
+qnorm(p=c(.025,.975),mean=5,sd=10) # two-sided quantiles of the distribution
+```
+
+## Sampling and standard errors
+
+Let's suppose that we have a population (we don't) from which we repeatedly sample and estimate a mean. For this one, we will use data on COVID prevalence.
+
+```{r sample-data}
+# install.packages("medicaldata")
+library(medicaldata)
+
+data(package = "medicaldata") # this will show you the full list of data sets
+# https://higgi13425.github.io/medicaldata/
+
+# Let's use the covid-testing data
+mydata <- covid_testing # Suppose that this is the population
+
+# If we want to take samples of 500 patients each
+sample1 <- mydata %>% sample_n(500, replace=TRUE)
+sample1 %>% mutate(positive = (result == "positive")*100) %>% # generate new variable (in %)
+  ungroup() %>% select(positive) %>% summarize_all(mean) # summarize average value
+
+# What if we take 100 of these samples?
+allsamples <- rep(NA, 1000) # empty frame to store results
+for (i in 1:1000) {
+ test <- mydata %>% sample_n(500, replace=TRUE)
+  allsamples[i] <- test %>% mutate(positive = (result == "positive")*100) %>% # generate new variable (in %)
+  ungroup() %>% select(positive) %>% summarize_all(mean) %>% as.numeric() # summarize average value
+  rm(test)
+}
+hist(allsamples)
+sd(allsamples) # This is a measure of variability (how would you think about putting it on the plot?)
+```
+
+This isn't that different from the days of poor mental health code above. But what if we wanted to compute standard errors more directly? 
+
+```{r ses-direct}
+# What about calculating SEs directly in the pouplation?
+mydata <- mydata %>% mutate(positive = (result == "positive"))
+se1 <- sd(mydata$positive)/sqrt(nrow(mydata)) # this is the standard error for our mean
+
+# Note: if we actually knew something about the sampling distribution, we could refine these estimates. 
+# For examlpe, suppose we know these tests are Bernoulli with p= the average positivity rate (0.06). Then, we can update our SE: 
+se2 <- sqrt(0.06*(1-0.06)/nrow(mydata)) # this is the standard error for our mean. Does it differ much? 
+```
+
+Now, let's talk about *plotting* uncertainty. What if we wanted to plot average positive rate across age bins?
+
+```{r data-viz-uncertainty}
+# first, create some age bins
+mydata <- mydata %>% mutate(agebin = ifelse(age < 18, 1,
+                                            ifelse(age >= 18 & age < 30, 2,
+                                                            ifelse(age >= 30 & age < 65, 3, 4))))
+
+# now without uncertainty, how can we plot?
+mydata %>% select(agebin, positive) %>%
+  group_by(agebin) %>% summarize(positive= mean(positive)) %>% 
+  mutate(agebin = factor(agebin, levels=1:4,labels=c("Under 18", "18-30", "30-64", "65+"))) %>% # make sure this is a factor
+  ggplot(aes(x=agebin,y=positive,fill=agebin)) + 
+  geom_bar(position = "dodge", stat = "summary") + 
+  labs(fill="Age Group", x="", y="Positivity Rate") + theme_minimal() 
+
+# now how to add uncertainty -- error bars
+mydata %>% select(agebin, positive) %>%
+  group_by(agebin) %>% summarize(mean= mean(positive), sd=sd(positive, na.rm=T), n=n()) %>%
+  mutate(se = sd/sqrt(n)) %>% # calculate the standard error
+  mutate(agebin = factor(agebin, levels=1:4,labels=c("Under 18", "18-30", "30-64", "65+"))) %>% # make sure this is a factor
+  ggplot(aes(x=agebin,y=mean,fill=agebin)) + 
+  geom_bar(position = "dodge", stat = "summary") + 
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), width=.2,position=position_dodge(.9)) + 
+  labs(fill="Age Group", x="", y="Positivity Rate") + theme_minimal() 
+```
+
+The main question, though, is: how much uncertainty should I show? And why? 
+
+## Calculating confidence intervals
+
+Note that we already built a confidence interval! All we need to do is appropriately adjust the standard error in the graph above. So how do we interpret it?
+
+Suppose we want to calculate these directly. Can we? Yes!
+
+```{r ci}
+# First, tweak our graph
+mydata %>% select(agebin, positive) %>%
+  group_by(agebin) %>% summarize(mean= mean(positive), sd=sd(positive, na.rm=T), n=n()) %>%
+  mutate(se = sd/sqrt(n)) %>% # calculate the standard error
+  mutate(agebin = factor(agebin, levels=1:4,labels=c("Under 18", "18-30", "30-64", "65+"))) %>% # make sure this is a factor
+  ggplot(aes(x=agebin,y=mean,fill=agebin)) + 
+  geom_bar(position = "dodge", stat = "summary") + 
+  geom_errorbar(aes(ymin=mean-1.96*se, ymax=mean+1.96*se), width=.2,position=position_dodge(.9)) + 
+  labs(fill="Age Group", x="", y="Positivity Rate") + theme_minimal() 
+  # Does anything change in our interpretation here?
+
+# What's the overall confidence interval? 
+prop.test(sum(mydata$positive),nrow(mydata)) # This is the easiest way to do this for binary variables
+prop.test(sum(mydata$positive),nrow(mydata), conf.level = 0.9) 
+prop.test(sum(mydata$positive),nrow(mydata), conf.level = 0.99)
+
+# confidence intervals across agebins
+prop.test(sum(mydata[which(mydata$agebin==1),]$positive),nrow(mydata[which(mydata$agebin==1),]))
+prop.test(sum(mydata[which(mydata$agebin==2),]$positive),nrow(mydata[which(mydata$agebin==2),]))
+prop.test(sum(mydata[which(mydata$agebin==3),]$positive),nrow(mydata[which(mydata$agebin==3),]))
+prop.test(sum(mydata[which(mydata$agebin==4),]$positive),nrow(mydata[which(mydata$agebin==4),]))
+```
+
+### Confidence intervals for proportions vs. means
+
+Let's get a little more specific into confidence intervals for proportions vs. means. Above, we really used a proportion. What if we wanted to use a truly continuous variable? 
+
+```{r ci-continuous}
+# Let's look at CIs for age
+t.test(mydata$age) # This gives us extraneous information but we'll get there!
+
+hist(mydata$age) # do we want the CI for the mean here? 
+wilcox.test(mydata$age, conf.int = TRUE) # This gives us a CI for the median
+```
+
+### CIs for Poisson data
+
+Suppose that we wanted to say something about *how many* tests each individual got, rather than the outcome of tests. That is, what if we were worried about differential access to testing?
+
+```{r poisson}
+# to get some fake data on this, let's collapse by first name in the dataset
+collapsed <- mydata %>% group_by(fake_first_name) %>% summarize(tests = n())
+hist(collapsed$tests) # Look Poisson enough?
+
+summary(collapsed$tests) # note the skew
+# but we don't need a package to get SEs!
+collapsed %>% ungroup() %>% summarize(mean = mean(tests), n = n()) %>%
+  mutate(se = sqrt(mean/n)) %>% select(se)
+
+# Now how can you plot this? Make a CI? Try it!
+```
+
+### CIs for differences in means
+
+Finally, let's test for the difference between means/proportions across two groups: men and women. We'll look at a continuous variable (time to first test) and a binary variable (positivity rates)
+
+```{r diff-means}
+# First, let's do a difference in means
+t.test(pan_day ~ gender, data = mydata, var.equal = FALSE)
+
+# Second, let's do a difference in proportions
+# install.packages('tidymodels') # note: this takes a while
+library(tidymodels)
+testdata <- mydata %>% ungroup() %>% select(positive, gender) %>% 
+  mutate(positive = as.factor(positive), 
+        gender = as.factor(gender))
+# prop_test(testdata,detailed=TRUE)
+```
+
+## Survival Curves
+
+Let's plot how long people "last" before a test across groups (let's go back to agebins). We can use the "pan_day" variable here since it already has a helpful time 0.
+
+```{r survival}
+# Need some packages
+# install.packages(c("survival", "survminer"))
+library("survival")
+library("survminer")
+
+# Need to define a "time 0"
+hist(mydata$pan_day)
+
+# Now we can do survival based on bins
+fit <- survfit(Surv(pan_day) ~ agebin, data = mydata)
+print(fit) # What do we take from this?
+
+# Let's plot!
+ggsurvplot(fit,
+          pval = TRUE, conf.int = TRUE,
+          risk.table = TRUE, # Add risk table
+          risk.table.col = "strata", # Change risk table color by groups
+          linetype = "strata", # Change line type by groups
+          surv.median.line = "hv", # Specify median survival
+          ggtheme = theme_bw(), # Change ggplot2 theme
+          palette = c("#E7B800", "#2E9FDF", "palegreen", "mediumpurple1"))
+
+# how do we make sense of this?
+```
