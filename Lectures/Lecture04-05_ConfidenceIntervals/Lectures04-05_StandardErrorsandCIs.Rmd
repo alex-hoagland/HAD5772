@@ -48,6 +48,9 @@ Just as a simple example, suppose that we have data with two possible outcomes: 
 
 ```{r simple-bernoulli}
 
+# What does this mean? 
+set.seed(5772)
+
 # First, sample some data 
 sampledata <- rbinom(n=1000,size=1,prob=0.1)
 hist(sampledata) # What does this tell us? What should I change above to change the shape of the graph? 
