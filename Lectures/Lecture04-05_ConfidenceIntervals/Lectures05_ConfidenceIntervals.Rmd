@@ -1,0 +1,286 @@
+---
+title: "Lecture 5 Code"
+author: "Alex Hoagland"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r header}
+# I like to include several additional notes in the header of my files here:
+#
+# Last modified: 2025-02-04
+#
+### PURPOSE:
+  # Lecture 5 code and output file
+#
+### NOTES:
+  # - uses the Tidyverse package and Dplyr
+library(tidyverse)
+library(NHANES)
+set.seed(5772)
+```
+
+## Refresher example
+Let's take a random example and run through some things from last time. We'll use this link, which has lots of publicly available datasets (potentially a good place to look for project data!) https://mira.mcmaster.ca/resources/data-repos-datasets/
+
+```{r refresher}
+library(rgho) # Global Health Observatory data (WHO) https://cran.r-project.org/web/packages/rgho/index.html. 
+
+data <- get_gho_data(
+  code = "MDG_0000000001"
+) # Pulls data straight from Global Health Observatory
+
+data <- get_gho_data("GHED_OOPSCHE_SHA2011", filter=list(YEAR=2015)) # Out-of-pocket expenditure as percentage of current health expenditure (CHE) (%)
+# https://cran.r-project.org/web/packages/rgho/vignettes/e-indicators.html
+
+# Let's visualize the data
+data %>% ggplot(aes(x=NumericValue)) + geom_density() + theme_minimal() + labs(x = "OOP Expenditures as % of CHE")
+
+# What is a good population parameter we care about? 
+
+# What is our *statistic*? 
+mean <- mean(data$NumericValue)
+
+# How much uncertainty is there around this? 
+sd(data$NumericValue)
+nrow(data)
+se <- sd(data$NumericValue)/sqrt(nrow(data)) # So what does this do? 
+
+# Note: how did we construct this standard error last time? Could you recreate that here? 
+
+# Now let's construct a 95% confidence interval around the mean 
+lb <- mean(data$NumericValue) - 1.96*se
+ub <- mean(data$NumericValue) + 1.96*se
+data %>% ggplot(aes(x=NumericValue)) + geom_density() + 
+  geom_vline(xintercept = mean, color="red") +
+  geom_rect(aes(xmin=lb, xmax=ub, ymin=0, ymax=0.0194), fill="coral", alpha=0.01) + 
+  theme_minimal() + labs(x = "OOP Expenditures as % of CHE", y = "")
+```
+
+What if we change the margin of error here? 
+```{r refresher2}
+# Now let's construct a 95% confidence interval around the mean 
+lb2 <- mean(data$NumericValue) - 2.576*se
+ub2 <- mean(data$NumericValue) + 2.576*se
+data %>% ggplot(aes(x=NumericValue)) + geom_density() + 
+  geom_vline(xintercept = mean, color="red") +
+  geom_rect(aes(xmin=lb, xmax=ub, ymin=0, ymax=0.0194), fill="coral3", alpha=0.01) + 
+  geom_rect(aes(xmin=lb2, xmax=ub2, ymin=0, ymax=0.0194), fill="coral", alpha=0.01) + 
+  theme_minimal() + labs(x = "OOP Expenditures as % of CHE", y = "") # Why do we think this is so small? 
+```
+
+### Calculating Confidence Intervals: Means and Medians
+
+Let's get a little more specific into confidence intervals for proportions vs. means. Above, we really used a proportion. What if we wanted to use a truly continuous variable? 
+
+```{r ci-continuous}
+# Let's look at CIs for age
+t.test(mydata$age) # This gives us extraneous information but we'll get there!
+
+hist(mydata$age) # do we want the CI for the mean here? 
+wilcox.test(mydata$age, conf.int = TRUE) # This gives us a CI for the median
+```
+
+## Calculating confidence intervals: Proportions
+
+Remember that we were working with the COVID-19 testing data: 
+```{r load-data}
+# install.packages("medicaldata")
+library(medicaldata) # https://higgi13425.github.io/medicaldata/
+
+# Let's use the covid-testing data
+mydata <- covid_testing # Suppose that this is the population
+# first, create some age bins
+mydata <- mydata %>% mutate(positive = (result == "positive"))
+mydata <- mydata %>% mutate(agebin = ifelse(age < 18, 1,
+                                            ifelse(age >= 18 & age < 30, 2,
+                                                            ifelse(age >= 30 & age < 65, 3, 4))))
+```
+
+Note that we already built a confidence interval! All we need to do is appropriately adjust the standard error in the graph above. So how do we interpret it?
+
+Suppose we want to calculate these directly. Can we? Yes!
+
+```{r ci}
+# First, tweak our graph
+mydata %>% select(agebin, positive) %>%
+  group_by(agebin) %>% summarize(mean= mean(positive), sd=sd(positive, na.rm=T), n=n()) %>%
+  mutate(se = sd/sqrt(n)) %>% # calculate the standard error
+  mutate(agebin = factor(agebin, levels=1:4,labels=c("Under 18", "18-30", "30-64", "65+"))) %>% # make sure this is a factor
+  ggplot(aes(x=agebin,y=mean,fill=agebin)) + 
+  geom_bar(position = "dodge", stat = "summary") + 
+  geom_errorbar(aes(ymin=mean-1.96*se, ymax=mean+1.96*se), width=.2,position=position_dodge(.9)) + 
+  labs(fill="Age Group", x="", y="Positivity Rate") + theme_minimal() 
+  # Does anything change in our interpretation here?
+
+# What's the overall confidence interval? 
+prop.test(sum(mydata$positive),nrow(mydata)) # This is the easiest way to do this for binary variables
+prop.test(sum(mydata$positive),nrow(mydata), conf.level = 0.9) 
+prop.test(sum(mydata$positive),nrow(mydata), conf.level = 0.99)
+
+# confidence intervals across agebins
+prop.test(sum(mydata[which(mydata$agebin==1),]$positive),nrow(mydata[which(mydata$agebin==1),]))
+prop.test(sum(mydata[which(mydata$agebin==2),]$positive),nrow(mydata[which(mydata$agebin==2),]))
+prop.test(sum(mydata[which(mydata$agebin==3),]$positive),nrow(mydata[which(mydata$agebin==3),]))
+prop.test(sum(mydata[which(mydata$agebin==4),]$positive),nrow(mydata[which(mydata$agebin==4),]))
+```
+
+### CIs for Poisson data
+
+Suppose that we wanted to say something about *how many* tests each individual got, rather than the outcome of tests. That is, what if we were worried about differential access to testing?
+
+```{r poisson}
+# to get some fake data on this, let's collapse by first name in the dataset
+collapsed <- mydata %>% group_by(fake_first_name) %>% summarize(tests = n())
+hist(collapsed$tests) # Look Poisson enough?
+
+summary(collapsed$tests) # note the skew
+# but we don't need a package to get SEs!
+collapsed %>% ungroup() %>% summarize(mean = mean(tests), n = n()) %>%
+  mutate(se = sqrt(mean/n)) # %>% select(se)
+
+# Now how can you plot this? Make a CI? Try it!
+```
+
+### CIs for differences in means
+
+Finally, let's test for the difference between means/proportions across two groups: men and women. We'll look at a continuous variable (time to first test) and a binary variable (positivity rates)
+
+```{r diff-means}
+# First, let's do a difference in means
+t.test(pan_day ~ gender, data = mydata, var.equal = FALSE)
+
+# Second, let's do a difference in proportions
+# install.packages('tidymodels') # note: this takes a while
+library(tidymodels)
+testdata <- mydata %>% ungroup() %>% select(positive, gender) %>% 
+  mutate(positive = as.factor(positive), 
+        gender = as.factor(gender))
+# prop_test(testdata,detailed=TRUE)
+```
+
+## Conditional Testing and Distributions
+What about two variables that we think are related? Let's pick `positive` and `age` here, given our plots above. First, what's the joint distribution here? 
+
+```{r joint}
+# visualize the joint distribution between mydata$positive and mydata$age
+# What's the best way to do this (aside from what we've already done)? Maybe a bin scatter
+# Now let's create a binned scatterplot 
+mydata %>%
+  mutate(bin = ntile(age, 25)) %>% 
+    # What should we play around with to make this sensible? 
+  group_by(bin) %>% 
+  summarize(xmean = mean(age, na.rm=T), 
+            ymean = mean(positive, na.rm=T)) %>% 
+  ggplot(aes(x = xmean, y = ymean)) +
+  geom_point() + theme_minimal() + 
+  labs(x = "Respondent Age", y = "% Positive")
+
+# What's the unconditional 95% confidence interval (for reference)
+prop.test(sum(mydata$positive), nrow(mydata))
+```
+Let's go from this joint distribution to a marginal one
+
+```{r marginal}
+library(ggExtra)
+
+# classic plot :
+p <- mydata %>%
+  mutate(bin = ntile(age, 25)) %>% 
+    # What should we play around with to make this sensible? 
+  group_by(bin) %>% 
+  summarize(xmean = mean(age, na.rm=T), 
+            ymean = mean(positive, na.rm=T)) %>% 
+  ggplot(aes(x = xmean, y = ymean)) +
+  geom_point() + theme_minimal() + 
+  labs(x = "Respondent Age", y = "% Positive")
+ 
+# with marginal histogram
+p1 <- ggMarginal(p, type="histogram")
+ 
+# marginal density
+p2 <- ggMarginal(p, type="density") # less interesting
+ 
+# marginal boxplot
+p3 <- ggMarginal(p, type="boxplot")
+```
+
+What if I know the value of a test's outcome? How does this change my understanding of the age distribution? 
+
+```{r conditional-distributions}
+uncond <- mydata %>% ggplot(aes(x=age)) + 
+  geom_histogram(color='gray', fill='#00AEDB', alpha=0.8) + 
+  theme_minimal() + labs(x = "Age")
+
+cond1 <- mydata %>% filter(positive == 1) %>% 
+  ggplot(aes(x=age)) + 
+  geom_histogram(color='gray', fill='#00B159', alpha=0.8) + 
+  theme_minimal() + labs(x = "Age", subtitle="Positive Test")
+
+cond2 <- mydata %>% filter(positive == 0) %>% 
+  ggplot(aes(x=age)) + 
+  geom_histogram(color='gray', fill='#6118BD', alpha=0.8) + 
+  theme_minimal() + labs(x = "Age", subtitle="Negative Test")
+
+library(ggpubr)
+ggarrange(uncond, cond1, cond2, ncol = 3, nrow = 1)
+ggarrange(cond1, cond2, nrow = 1)
+```
+
+So how does this change our estimates? 
+```{r conditional-cis}
+mydata %>% group_by(positive) %>% summarize(mean = mean(age), n = n()) %>% 
+  mutate(se = sqrt(mean/n)) %>% 
+  mutate(lb = mean - 1.96*se, 
+         ub = mean + 1.96*se)
+
+# So information about the test outcome changes our estimate of the mean age
+
+# Let's do this the other way -- how does information about age change understanding of mean positivity? 
+mydata %>% group_by(agebin) %>% summarize(mean = mean(positive), n = n()) %>% 
+  mutate(se = sqrt(mean/n)) %>% 
+  mutate(lb = mean - 1.96*se, 
+         ub = mean + 1.96*se) # What do we see? Have we seen it before? 
+
+# Can we formally test this (preview for next time)
+samp1 <- mydata %>% filter(agebin==1)
+samp2 <- mydata %>% filter(agebin==4)
+prop.test(c(sum(samp1$positive),sum(samp2$positive)), 
+          c(nrow(samp1), nrow(samp2))) # What does this tell us? 
+```
+
+## Survival Curves
+
+Let's plot how long people "last" before a test across groups (let's go back to agebins). We can use the "pan_day" variable here since it already has a helpful time 0.
+
+```{r survival}
+# Need some packages
+# install.packages(c("survival", "survminer"))
+library("survival")
+library("survminer")
+
+# Need to define a "time 0"
+hist(mydata$pan_day)
+
+# Now we can do survival based on bins
+fit <- survfit(Surv(pan_day) ~ agebin, data = mydata)
+print(fit) # What do we take from this?
+
+# Let's plot!
+ggsurvplot(fit,
+          pval = TRUE, conf.int = TRUE,
+          risk.table = TRUE, # Add risk table
+          risk.table.col = "strata", # Change risk table color by groups
+          linetype = "strata", # Change line type by groups
+          surv.median.line = "hv", # Specify median survival
+          ggtheme = theme_bw(), # Change ggplot2 theme
+          palette = c("#E7B800", "#2E9FDF", "palegreen", "mediumpurple1"))
+
+# how do we make sense of this?
+```
