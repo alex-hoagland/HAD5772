@@ -80,6 +80,12 @@ data %>% ggplot(aes(x=NumericValue)) + geom_density() +
 Let's get a little more specific into confidence intervals for proportions vs. means. Above, we really used a proportion. What if we wanted to use a truly continuous variable? 
 
 ```{r ci-continuous}
+# install.packages("medicaldata")
+library(medicaldata) # https://higgi13425.github.io/medicaldata/
+
+# Let's use the covid-testing data
+mydata <- covid_testing # Suppose that this is the population
+
 # Let's look at CIs for age
 t.test(mydata$age) # This gives us extraneous information but we'll get there!
 
@@ -162,7 +168,12 @@ library(tidymodels)
 testdata <- mydata %>% ungroup() %>% select(positive, gender) %>% 
   mutate(positive = as.factor(positive), 
         gender = as.factor(gender))
-# prop_test(testdata,detailed=TRUE)
+prop_test(testdata,detailed=TRUE)
+```
+
+``` {r diff-proportions}
+# test the difference in proportions of the mydata$positive variable across mydata$gender
+prop.test(table(mydata$gender, mydata$positive))
 ```
 
 ## Conditional Testing and Distributions
@@ -251,8 +262,9 @@ mydata %>% group_by(agebin) %>% summarize(mean = mean(positive), n = n()) %>%
 # Can we formally test this (preview for next time)
 samp1 <- mydata %>% filter(agebin==1)
 samp2 <- mydata %>% filter(agebin==4)
+prop.test(sum(mydata$positive), nrow(mydata)) # does a one-way test
 prop.test(c(sum(samp1$positive),sum(samp2$positive)), 
-          c(nrow(samp1), nrow(samp2))) # What does this tell us? 
+          c(nrow(samp1), nrow(samp2))) # does a two-way test 
 ```
 
 ## Survival Curves
