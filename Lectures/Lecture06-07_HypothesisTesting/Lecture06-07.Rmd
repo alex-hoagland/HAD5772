@@ -63,7 +63,7 @@ Remember that as we discussed last time, we can also use `wilcox.test` to test t
 ```{r simple-test}
 # Let's test the hypothesis that the median wage is $6.03 (median hourly wage in USD, 1985)
 median(exp(testdata$lwage)) # median wage is $5.85 in sample
-wilcox.test(exp(testdata$lwage), mu=6.03) 
+wilcox.test(exp(testdata$lwage), mu=6.03, conf.int=TRUE) # What do we think? Ignore p-value for now) 
 ```
 
 ## What about a test for proportions? 
@@ -151,7 +151,7 @@ t.test(testdata$union~testdata$nrtheast, var.equal = FALSE)
 # Let's look at the same individual over time and test that wages were stagnant in real dollars
 matchedata <- mydata %>% filter(year %in% c(1980, 1987)) %>% 
   mutate(wage = exp(lwage)) %>% 
-  mutate(wage = ifelse(year == 1980, wage*3.83, wage*2.78)) %>% 
+  mutate(wage = ifelse(year == 1980, wage*3.83, wage*2.78)) %>% # adjust for inflation
   select(nr, year, wage) %>%
   spread(year, wage) # spread the data to wide format 
 
@@ -341,53 +341,10 @@ curve(dnorm(x),
       lwd = 2) # so think carefully -- what is the distribution we're showing here? 
 ```
 
-### How does sample size influence testing outcomes? 
-Finally, let's use the example in the slides about tipping to explore the effect of limited/expanded sample sizes on testing outcomes
-
-```{r small-n-tests}
-# set seed for reproducibility
-set.seed(0813)
-
-# sample data that has 16 observations with mean 12 and var 23
-tip_data <- data.frame(rnorm(n=16, mean = 12, sd = sqrt(23)))
-names(tip_data) <- "tips"
-
-# can we reject the null hypothesis of mean = 15 with 99% confidence? 
-t.test(tip_data, mu = 15, conf.level = 0.99)
-confint(lm(tips~1,tip_data), level=0.99) # 99% confidence interval for tip_data
-
-# Okay, suppose that we had a larger sample size of n=100
-tip_data <- data.frame(rnorm(n=100, mean = 12, sd = sqrt(23)))
-names(tip_data) <- "tips"
-t.test(tip_data, mu = 15, conf.level = 0.99)
-confint(lm(tips~1,tip_data), level=0.99) 
-
-# What if variance changed too? 
-tip_data <- data.frame(rnorm(n=100, mean = 12, sd = sqrt(100)))
-names(tip_data) <- "tips"
-t.test(tip_data, mu = 15, conf.level = 0.99)
-confint(lm(tips~1,tip_data), level=0.99) 
-```
-
-### Tests for proportions
-Finally, let's implement a test for proportions using the wagepan dataset. 
-
-```{r prop-test}
-# We will test whether *the fraction of unionized workers* is different from 1980 to 1987
-summary(mydata[which(mydata$year==1980),]$union) #25.14%
-summary(mydata[which(mydata$year==1987),]$union) #26.24% do we think it will be? 
-
-# To test this, let's trim the data
-testdata <- mydata %>% filter(year %in% c(1980, 1987)) %>% select(union, year)
-t.test(testdata$union ~ testdata$year, var.equal = F, conf.level = 0.95)
-```
-
 ## P-values
 Let's go back to the example from last time about tipping and think about the p-values here. 
 
 ```{r small-n-tests-pvalues}
-# set seed for reproducibility
-set.seed(0813)
 
 # sample data that has 16 observations with mean 12 and var 23
 tip_data <- data.frame(rnorm(16, mean = 12, sd = sqrt(23)))
