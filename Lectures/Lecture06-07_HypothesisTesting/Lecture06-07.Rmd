@@ -2,7 +2,7 @@
 title: "Lecture 6 Code"
 author: "Alex Hoagland"
 date: "`r Sys.Date()`"
-output: html_document
+output: word_document
 ---
 
 ```{r setup, include=FALSE}
@@ -373,9 +373,9 @@ We can show these simulations directly in R.
 ```{r pvalue-sim-true}
 # The null hypothesis is that the average is equal to 0
 # We will simulate 10000 p-values under the null hypothesis
-pvalues <- numeric(10000)
-for (i in 1:10000) {
-  sample <- rnorm(100,mean=0,sd=100)
+pvalues <- numeric(100)
+for (i in 1:100) {
+  sample <- rnorm(1e7,mean=1,sd=100)
   pvalues[i] <- t.test(sample, mu = 0)$p.value
 }
 hist(pvalues)
@@ -494,7 +494,7 @@ How do we calculate power directly?
 # You must leave exactly one out of the following: 
 #      n, d (effect size), power, and sig.level
 # Note that d = difference in means divided by pooled standard deviation
-pwr.t.test(n=NULL, d = 0.1, sig.level = 0.01, power = .9, 
+pwr.t.test(n=NULL, d = .05, sig.level = 0.05, power = .9, 
            type = "two.sample", alternative = "two.sided")
 ```
 
