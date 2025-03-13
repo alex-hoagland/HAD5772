@@ -181,6 +181,11 @@ But if we control for average patient education, the results change:
 # Now, control for education 
 lm_complex <- lm(hospitalizations ~ a1cs + education, data=mydata)
 summary(lm_complex)
+
+# Make a regression table: 
+library(modelsummary)
+msummary(list("No Covariates"=lm_simple,"Controlling for Education"=lm_complex),
+         stars=TRUE) 
 ```
 ## Dummy Variables
 
