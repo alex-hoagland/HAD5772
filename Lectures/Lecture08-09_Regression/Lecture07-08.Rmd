@@ -246,6 +246,49 @@ msummary(list("No Regions"=lm_dummy, "With Region Controls"=lm_region),
 # # and one with full set of coefficients. Then use waldtest to test difference
 ```
 
+## Weighting and Log Transformations
+For this, let's look at the data on education and wages cited below. 
+```{r weights}
+mydata <- causaldata::close_college %>% mutate(wage=exp(lwage))
+hist(mydata$wage) # what do we see here? 
+
+# suppose we have weights to account for the fact that we have a population that is 25% Black and 50% in the South. 
+# Hence, in the simplest case, we have 4 weights: 
+# 1. Black and South -- 0.25*0.5 = 0.125
+# 2. Black and Not South -- 0.25*0.5 = 0.125
+# 3. Not Black and South -- 0.75*0.5 = 0.375
+# 4. Not Black and Not South -- 0.75*0.5 = 0.375 (assuming uncorrelated for now)
+mydata <- mydata %>% mutate(weight = ifelse(black == 1, 0.125, 0.375))
+```
+
+Now we can do a weighted and an unweighted regression
+
+```{r weight-reg}
+# Unweighted regression of education on wages
+m_unweighted <- lm(wage ~ educ, data=mydata)
+
+# Weighted regression of education on wages
+m_weighted <- lm(wage ~ educ, data=mydata, weights=weight)
+
+# Summarize in a table with modelsummary
+msummary(list("Unweighted"=m_unweighted, "Weighted"=m_weighted),
+         stars=c('*' = .1, '**' = .05, '***' = .01)) # What do we see?
+```
+
+What does this pick up in terms of wages? Is it what we would want? What if we try multiplicative effects instead of additive? 
+
+```{r log}
+# Unweighted regression of education on wages
+m_unweighted <- lm(lwage ~ educ, data=mydata)
+
+# Weighted regression of education on wages
+m_weighted <- lm(lwage ~ educ, data=mydata, weights=weight)
+
+# Summarize in a table with modelsummary
+msummary(list("Unweighted"=m_unweighted, "Weighted"=m_weighted),
+         stars=c('*' = .1, '**' = .05, '***' = .01)) # What do we see?
+```
+
 ## Interaction Terms
 
 Our question will be: what is the effect of education on wages? We can estimate a simple regression controlling only for education and experience -- for now, assume that this is a fully specified model.
